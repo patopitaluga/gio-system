@@ -184,6 +184,10 @@ npm run lint:fix
 Every user message goes through a single orchestrator (`lib/orchestrator.ts`) before the conversation assistant sees it:
 
 ```mermaid
+---
+config:
+  look: handDrawn
+---
 flowchart TD
   User([User asks])
   Orch[Orchestrator]
