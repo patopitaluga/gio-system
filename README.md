@@ -184,11 +184,6 @@ npm run lint:fix
 Every user message goes through a single orchestrator (`lib/orchestrator.ts`) before the conversation assistant sees it:
 
 ```mermaid
----
-config:
-  flowchart:
-    curve: stepBefore
----
 flowchart TD
   User([User asks])
   Orch[Orchestrator]
@@ -204,7 +199,6 @@ flowchart TD
   Lesson --> Interests
   Exercises --> Interests
   Conversation --> Interests
-  User --> Interests
 ```
 
 1. **Lesson request** — retrieve a saved lesson or generate a new one from the study plan.
