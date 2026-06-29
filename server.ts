@@ -2,9 +2,9 @@ import express from 'express';
 import { createServer } from 'http';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { createAgentService } from './controllers/agent/index.ts';
+import { createAgentService } from './conversation/index.ts';
 import { createTurnPostHandler } from './controllers/turn-http.ts';
-import { attachRealtimeWebSocket } from './controllers/realtime-ws.ts';
+import { attachWebSocket } from './controllers/websocket.ts';
 import {
   csrfErrorHandler,
   csrfProtection,
@@ -14,6 +14,7 @@ import {
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
+/** Used in `server.ts`. */
 export function isSpeechPreviewEnabled(): boolean {
   const value = process.env.SPEECH_PREVIEW?.trim().toLowerCase();
 
@@ -49,7 +50,7 @@ if (isMainModule) {
   app.use(csrfErrorHandler);
 
   const server = createServer(app);
-  attachRealtimeWebSocket(server, sessionManager);
+  attachWebSocket(server, sessionManager);
 
   const port = process.env.PORT || 3001;
   server.listen(port, () => {

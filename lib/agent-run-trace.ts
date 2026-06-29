@@ -1,5 +1,6 @@
 import { styleText } from 'node:util';
 import { Runner, type Agent, type RunResult, type Tool } from '@openai/agents';
+import { getToolName } from './tools.ts';
 import { parseToolArguments } from './parse-tool-arguments.ts';
 import {
   logOpenAiResponseReceived,
@@ -45,6 +46,7 @@ function isToolErrorResult(result: string): boolean {
     || result.includes('An error occurred while running the tool');
 }
 
+/** Used in `lib/agent-run-trace.ts`. Used in `test/study-output.test.ts`. */
 export function summarizeToolArgsForLog(
   toolName: string,
   args: Record<string, unknown>,
@@ -82,6 +84,7 @@ export function summarizeToolArgsForLog(
   }
 }
 
+/** Used in `lib/agent-run-trace.ts`. Used in `test/study-output.test.ts`. */
 export function summarizeToolResultForLog(toolName: string, result: string): string {
   if (isToolErrorResult(result)) return truncate(result, 240);
 
@@ -212,6 +215,7 @@ function logRunTraceSummary(contextLabel: string, requests: TracedRequest[], res
   }
 }
 
+/** Imported in `lib/run-agent.ts`. */
 export function createAgentRunTrace(contextLabel: string) {
   const runner = new Runner();
   const requests: TracedRequest[] = [];
@@ -281,14 +285,4 @@ export function createAgentRunTrace(contextLabel: string) {
       console.error(styleText('red', `✗ ${contextLabel} run failed: ${message}`));
     },
   };
-}
-
-function getToolName(tool: Tool): string | undefined {
-  if (typeof tool === 'object' && tool !== null && 'name' in tool) {
-    const { name } = tool as { name: unknown };
-
-    if (typeof name === 'string' && name.trim()) return name;
-  }
-
-  return undefined;
 }

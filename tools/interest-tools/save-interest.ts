@@ -2,8 +2,10 @@ import { tool } from '@openai/agents';
 import { z } from 'zod';
 import { saveInterest } from '../../lib/save-interests.ts';
 
+/** Used in `agent-interests.ts` and `lib/agent-run-trace.ts`. */
 export const SAVE_INTEREST_TOOL_NAME = 'save_interest';
 
+/** Imported in `agent-interests.ts`. */
 export const saveInterestTool = tool({
   name: SAVE_INTEREST_TOOL_NAME,
   description:

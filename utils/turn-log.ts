@@ -4,32 +4,12 @@ function formatDetails(details?: Record<string, unknown>): string {
   return ` ${JSON.stringify(details)}`;
 }
 
-function summarizeToolArgs(toolName: string, args: Record<string, unknown>): Record<string, unknown> {
-  switch (toolName) {
-    case 'write_file':
-    case 'append_file': {
-      const content = typeof args.content === 'string' ? args.content : '';
-      return {
-        filePath: args.filePath,
-        contentLength: content.length,
-      };
-    }
-    case 'read_file':
-      return { filePath: args.filePath };
-    case 'delete_file':
-      return { filePath: args.filePath };
-    case 'rename_file':
-      return { fromPath: args.fromPath, toPath: args.toPath };
-    default:
-      return args;
-  }
-}
-
+/** Imported in `conversation/session-manager.ts`, `controllers/turn-http.ts`, and `controllers/websocket.ts`. */
 export function logTurn(message: string, details?: Record<string, unknown>) {
   console.log(`[gio-system:turn] ${message}${formatDetails(details)}`);
 }
 
-/** Logs the full user prompt sent to an OpenAI agent or Realtime session (server console only). */
+/** Imported in `lib/run-agent.ts`. */
 export function logUserPrompt(target: string, prompt: string, details?: Record<string, unknown>) {
   const trimmed = prompt.trim();
   if (!trimmed) return;
@@ -42,6 +22,7 @@ export function logUserPrompt(target: string, prompt: string, details?: Record<s
   console.log(trimmed);
 }
 
+/** Imported in `conversation/session-manager.ts`, `controllers/turn-http.ts`, `controllers/websocket.ts`, and `agent-interests.ts`. */
 export function logTurnError(message: string, error: unknown, details?: Record<string, unknown>) {
   const errorMessage = error instanceof Error ? error.message : String(error);
   const errorStack = error instanceof Error ? error.stack : undefined;
@@ -49,6 +30,7 @@ export function logTurnError(message: string, error: unknown, details?: Record<s
   if (errorStack) console.error(errorStack);
 }
 
+/** Imported in `conversation/session-manager.ts`. */
 export function logToolStart(
   toolName: string,
   args: Record<string, unknown>,
@@ -56,10 +38,11 @@ export function logToolStart(
 ) {
   logTurn(`tool start: ${toolName}`, {
     callId,
-    ...summarizeToolArgs(toolName, args),
+    ...args,
   });
 }
 
+/** Imported in `conversation/session-manager.ts`. */
 export function logToolEnd(
   toolName: string,
   args: Record<string, unknown>,
@@ -71,12 +54,13 @@ export function logToolEnd(
   logFn(
     `[gio-system:turn] tool ${isError ? 'error' : 'end'}: ${toolName}${formatDetails({
       callId,
-      ...summarizeToolArgs(toolName, args),
+      ...args,
       result: result.length > 200 ? `${result.slice(0, 200)}…` : result,
     })}`,
   );
 }
 
+/** Imported in `conversation/session-manager.ts`. */
 export function logResponseDone(status: string | undefined, details?: Record<string, unknown>) {
   const level = status === 'completed' ? 'log' : 'error';
   console[level](`[gio-system:turn] response.done${formatDetails({ status, ...details })}`);

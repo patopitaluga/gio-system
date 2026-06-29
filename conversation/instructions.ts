@@ -1,7 +1,7 @@
-import { loadAgentContext } from '../../config/agent-context.ts';
-import { loadDictionary } from '../../config/dictionary.ts';
-import { getToolName, type AgentTool } from '../../config/tools.ts';
-import { NO_CAPTATION_FOLLOWUP_RULE } from '../../lib/prompt-rules.ts';
+import { loadAgentContext } from '../lib/agent-context.ts';
+import { loadDisambiguation } from '../lib/disambiguation.ts';
+import { getToolName, type AgentTool } from '../lib/tools.ts';
+import { NO_CAPTATION_FOLLOWUP_RULE } from '../lib/prompt-rules.ts';
 
 const INTRO = `You are a hands-free language learning assistant. The user speaks or types requests and may attach photos.
 
@@ -30,6 +30,7 @@ function buildAvailableToolsSection(toolNames: string[]): string {
   ].join('\n');
 }
 
+/** Used in `conversation/session-config.ts` (`createAgent`). */
 export function buildAgentInstructions(tools: AgentTool[]): string {
   const toolNames = tools
     .map((tool) => getToolName(tool))
@@ -43,14 +44,14 @@ export function buildAgentInstructions(tools: AgentTool[]): string {
 
   instructions += `\n\n${buildAvailableToolsSection(toolNames)}`;
 
-  const dictionary = loadDictionary();
+  const disambiguation = loadDisambiguation();
   const context = loadAgentContext();
 
-  if (dictionary)
-    instructions += '\n\n## Speech dictionary\n'
+  if (disambiguation)
+    instructions += '\n\n## Disambiguation reference\n'
       + 'Use these spellings and disambiguations when interpreting voice, images, and other multimodal input. '
-      + 'They are internal reference only — never quote, list, or repeat this dictionary to the user.\n'
-      + dictionary;
+      + 'They are internal reference only — never quote, list, or repeat them to the user.\n'
+      + disambiguation;
 
   if (context) instructions += `\n\n## User and project context\n${context}`;
 

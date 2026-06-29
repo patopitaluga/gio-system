@@ -1,8 +1,9 @@
 import { existsSync, readFileSync, writeFileSync } from 'fs';
 import path from 'path';
-import { projectRoot } from '../config/workspace.ts';
+import { projectRoot } from './workspace.ts';
 import { formatCurrentDate } from './study-plan-context.ts';
 
+/** Default path for `loadInterestsFile` and `saveInterest`. */
 export const INTERESTS_PATH = path.join(projectRoot, 'interests.md');
 
 const INTERESTS_HEADER = `# Interests
@@ -13,6 +14,7 @@ Topics the learner has expressed interest in during conversations.
 
 const INTEREST_LINE_PATTERN = /^- \*\*(.+?)\*\*(?: — (.+))? \((noted .+)\)$/;
 
+/** Return type for `saveInterest`. */
 export type SaveInterestResult = {
   saved: boolean;
   savedPath: string;
@@ -20,6 +22,7 @@ export type SaveInterestResult = {
   duplicate: boolean;
 };
 
+/** Imported in `agent-interests.ts`. Default input for `saveInterest`. */
 export function loadInterestsFile(interestsPath = INTERESTS_PATH): string {
   if (!existsSync(interestsPath)) return '';
 
@@ -51,7 +54,7 @@ function ensureInterestsFile(content: string): string {
   return `${INTERESTS_HEADER}${trimmed}\n`;
 }
 
-/** Appends a new interest bullet to `interests.md` when the topic is not already saved. */
+/** Imported in `tools/interest-tools/save-interest.ts`. Used in `test/interests.test.ts`. */
 export function saveInterest(
   topic: string,
   note?: string,

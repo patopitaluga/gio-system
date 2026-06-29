@@ -50,8 +50,10 @@ function isSafeMethod(method: string): boolean {
   return method === 'GET' || method === 'HEAD' || method === 'OPTIONS';
 }
 
+/** Used in `server.ts`. */
 export const parseCookies = cookieParser();
 
+/** Used in `server.ts` (`GET /csrf-token`, `POST /turn`). */
 export const csrfProtection: RequestHandler = (req, res, next) => {
   let secret = readSecret(req);
 
@@ -78,10 +80,12 @@ export const csrfProtection: RequestHandler = (req, res, next) => {
   next();
 };
 
+/** Used in `server.ts` (`GET /csrf-token`). */
 export const csrfTokenHandler: RequestHandler = (req, res) => {
   res.json({ csrfToken: req.csrfToken() });
 };
 
+/** Used in `server.ts`. */
 export const csrfErrorHandler: ErrorRequestHandler = (err, _req, res, next) => {
   if (err.code === 'EBADCSRFTOKEN') {
     res.status(403).json({ error: 'Invalid CSRF token' });

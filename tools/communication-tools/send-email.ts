@@ -5,6 +5,7 @@ import { z } from 'zod';
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+/** Used in `agent-lesson.ts`, `agent-exercises.ts`, and `conversation/tools.ts`. */
 export const SEND_EMAIL_TOOL_NAME = 'send_email';
 
 const sendEmailParameters = z.object({
@@ -19,6 +20,7 @@ const sendEmailParameters = z.object({
   html: z.string().optional().describe('Optional HTML email body'),
 });
 
+/** Imported in `agent-lesson.ts`, `agent-exercises.ts`, and `conversation/tools.ts`. */
 export function isEmailConfigured(): boolean {
   return Boolean(
     process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS,
@@ -60,6 +62,7 @@ function resolveRecipient(nameOrEmail?: string): string {
   );
 }
 
+/** Parameter type for `sendEmail`. */
 export type SendEmailInput = {
   to?: string;
   subject: string;
@@ -67,11 +70,13 @@ export type SendEmailInput = {
   html?: string;
 };
 
+/** Return type for `sendEmail`. */
 export type SendEmailResult = {
   messageId: string;
   to: string;
 };
 
+/** Imported in `agent-lesson.ts` and `agent-exercises.ts` (`sendLessonByEmail` / `sendExercisesByEmail`). */
 export async function sendEmail(input: SendEmailInput): Promise<SendEmailResult> {
   if (!isEmailConfigured())
     throw new Error('SMTP is not configured. Set SMTP_HOST, SMTP_USER, and SMTP_PASS in .env');
@@ -95,7 +100,7 @@ async function executeSendEmail(input: z.infer<typeof sendEmailParameters>): Pro
   return JSON.stringify(result);
 }
 
-/** For Realtime fallback agent (requires user approval before send). */
+/** Imported in `conversation/tools.ts`. */
 export function createSendEmailTool() {
   return realtimeTool({
     name: SEND_EMAIL_TOOL_NAME,
@@ -107,7 +112,7 @@ export function createSendEmailTool() {
   });
 }
 
-/** For batch agents such as `agent-lesson.ts` (no approval step). */
+/** Imported in `agent-lesson.ts` and `agent-exercises.ts`. */
 export function createSendEmailAgentTool() {
   return agentTool({
     name: SEND_EMAIL_TOOL_NAME,

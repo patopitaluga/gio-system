@@ -1,41 +1,22 @@
 import type { TurnMetadata } from './types.ts';
 
-import { parseToolArguments } from '../../lib/parse-tool-arguments.ts';
+import { parseToolArguments } from '../lib/parse-tool-arguments.ts';
 
+/** Re-exported for `conversation/session-manager.ts`. Implemented in `lib/parse-tool-arguments.ts`. Used in `test/turn-helpers.test.ts`. */
 export { parseToolArguments };
 
+/** Imported in `conversation/session-manager.ts`. Used in `test/turn-helpers.test.ts`. */
 export function formatToolAction(
   toolName: string,
-  args: Record<string, unknown>,
+  _args: Record<string, unknown>,
   result: string,
 ): string {
-  if (result.startsWith('Error:')) {
-    const target =
-      args.filePath ??
-      args.directoryPath ??
-      args.fromPath ??
-      args.toPath ??
-      'file';
-    return `${toolName} failed on ${String(target)}: ${result}`;
-  }
+  if (result.startsWith('Error:')) return `${toolName} failed: ${result}`;
 
-  switch (toolName) {
-    case 'write_file':
-    case 'append_file':
-    case 'delete_file':
-    case 'rename_file':
-      return `${toolName}: ${result}`;
-    case 'read_file': {
-      const filePath = String(args.filePath ?? 'file');
-      return `${toolName}: read ${filePath} (${result.length} bytes)`;
-    }
-    case 'list_files':
-      return `${toolName}: ${result.split('\n')[0]}`;
-    default:
-      return result ? `${toolName}: ${result}` : `${toolName} ran`;
-  }
+  return result ? `${toolName}: ${result}` : `${toolName} ran`;
 }
 
+/** Imported in `conversation/session-manager.ts`. Used in `test/turn-helpers.test.ts`. */
 export function buildUserPrompt(metadata: TurnMetadata, transcript?: string): string {
   const parts: string[] = [];
 
@@ -56,6 +37,7 @@ export function buildUserPrompt(metadata: TurnMetadata, transcript?: string): st
   return parts.join(' ');
 }
 
+/** Imported in `conversation/session-manager.ts`. Used in `test/turn-helpers.test.ts`. */
 export function responseHasToolCalls(event: {
   type: string;
   response?: { output?: Array<{ type: string }> };
@@ -63,6 +45,7 @@ export function responseHasToolCalls(event: {
   return event.response?.output?.some((item) => item.type === 'function_call') ?? false;
 }
 
+/** Imported in `conversation/session-manager.ts`. Used in `test/turn-helpers.test.ts`. */
 export function toError(value: unknown): Error {
   if (value instanceof Error) return value;
 

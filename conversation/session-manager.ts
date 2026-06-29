@@ -1,36 +1,35 @@
 /**
- * Manages Realtime sessions and orchestrates user turns to specialized agents.
+ * Manages the conversation assistant session and orchestrates user turns.
  *
  * A turn is one user request (voice, text, and/or image) through to the agent's
- * final text reply. Before starting a Realtime response, this module tries
- * Before starting a Realtime response, this module tries the unified orchestrator
- * in `lib/orchestrator.ts`: one agent decides general vs lesson vs exercises and
- * retrieve vs generate, otherwise falls back to the Realtime learning assistant.
+ * final text reply. Before calling the multimodal model, this module runs the
+ * unified orchestrator in `lib/orchestrator.ts`: one agent decides general vs
+ * lesson vs exercises and retrieve vs generate, otherwise falls back to the
+ * conversation assistant (`gpt-realtime-1.5` via the OpenAI Realtime API).
  *
  * Flow per turn:
  * 1. **Orchestrator** — `runOrchestrator()` (single SDK `Agent` + tools).
- * 2. **Fallback** — Realtime session handles general requests (open conversation, email).
+ * 2. **Fallback** — conversation assistant handles general requests (open chat, email).
  *
  * @see {@link https://openai.github.io/openai-agents-js/guides/multi-agent/ | Agent orchestration (SDK)}
- * @see ../../lib/orchestrator.ts — unified routing
+ * @see ../lib/orchestrator.ts — unified routing
  *
  * **Exports** (1 class, 2 public methods):
  * - `TurnSessionManager` — session lifecycle and single-turn concurrency guard
  * - `TurnSessionManager.processTextTurn` — text/image turns (`POST /turn`)
  * - `TurnSessionManager.beginTurn` — start a turn; returns a `StreamingTurn`
- *   handle to stream audio (`appendAudio`), finish (`commit`), or abort (`cancel`)
+ *   handle to buffer audio (`appendAudio`), finish (`commit`), or abort (`cancel`)
  *
- * @module controllers/agent/session-manager
+ * @module conversation/session-manager
  */
 import {
   logOpenAiRequest,
   logOpenAiThinking,
   logOpenAiUsage,
   usageFromRealtimeResponse,
-} from '../../lib/log-openai-usage.ts';
-import type { RealtimeSession } from '@openai/agents/realtime';
-import { RealtimeSession as RealtimeSessionClass } from '@openai/agents/realtime';
-import { buildTranscriptionPrompt, isEmptyOrDictionaryHallucination } from '../../config/dictionary.ts';
+} from '../lib/log-openai-usage.ts';
+import { RealtimeSession as ConversationSession } from '@openai/agents/realtime';
+import { buildTranscriptionPrompt, isEmptyOrDisambiguationHallucination } from '../lib/disambiguation.ts';
 import {
   logResponseDone,
   logToolEnd,
@@ -38,9 +37,9 @@ import {
   logTurn,
   logTurnError,
   logUserPrompt,
-} from '../../utils/turn-log.ts';
-import { runOrchestrator } from '../../lib/orchestrator.ts';
-import { scheduleInterestsAnalysis } from '../../agent-interests.ts';
+} from '../utils/turn-log.ts';
+import { runOrchestrator } from '../lib/orchestrator.ts';
+import { scheduleInterestsAnalysis } from '../agent-interests.ts';
 import { createAgent, createSessionConfig } from './session-config.ts';
 import {
   buildUserPrompt,
@@ -49,7 +48,7 @@ import {
   responseHasToolCalls,
   toError,
 } from './turn-helpers.ts';
-import type { AgentTool } from '../../config/tools.ts';
+import type { AgentTool } from '../lib/tools.ts';
 import type { StreamingTurn, TurnMetadata, TurnResult, TurnStreamEvent } from './types.ts';
 
 const TURN_TIMEOUT_MS = 120_000;
@@ -60,7 +59,7 @@ function interestsSourceFromTurn(result: TurnResult): string {
   if (action.startsWith('lesson:')) return 'lesson';
   if (action.startsWith('exercises:')) return 'exercises';
 
-  return 'realtime';
+  return 'conversation';
 }
 
 function scheduleInterestsFromTurn(result: TurnResult): void {
@@ -72,19 +71,19 @@ function scheduleInterestsFromTurn(result: TurnResult): void {
 }
 
 /**
- * Keeps one Realtime WebSocket session alive, routes learning turns, and runs
+ * Keeps the conversation assistant session alive, routes learning turns, and runs
  * one turn at a time.
  *
  * Imported in:
- * - `controllers/agent/index.ts` — instantiated in `createAgentService`
- * - `controllers/realtime-ws.ts` — type for `attachRealtimeWebSocket` session param
+ * - `conversation/index.ts` — instantiated in `createAgentService`
+ * - `controllers/websocket.ts` — voice turns over `/ws`
  * - `controllers/turn-http.ts` — type for `createTurnPostHandler` session param
  *
  * @param agentTools - Tools loaded at startup (built-ins, plugins, profile filters)
  */
 export class TurnSessionManager {
-  private session: RealtimeSession | null = null;
-  private connectPromise: Promise<RealtimeSession> | null = null;
+  private session: ConversationSession | null = null;
+  private connectPromise: Promise<ConversationSession> | null = null;
   private busy = false;
   private activeTurn: StreamingTurn | null = null;
 
@@ -98,9 +97,9 @@ export class TurnSessionManager {
    * Unified orchestrator for one user message.
    *
    * Returns a completed {@link TurnResult} when lesson or exercises own the turn,
-   * or `null` so the caller can fall back to the Realtime assistant (general path).
+   * or `null` so the caller can fall back to the conversation assistant (general path).
    *
-   * @see ../../lib/orchestrator.ts
+   * @see ../lib/orchestrator.ts
    */
   private async runOrchestratedTurn(
     userMessage: string,
@@ -163,15 +162,15 @@ export class TurnSessionManager {
   /**
    * Starts a turn and returns a handle to stream audio or commit/cancel it.
    *
-   * Orchestration entry points (before Realtime `response.create`):
+   * Orchestration entry points (before the model generates a response):
    * - **Text** — orchestrate `metadata.question` immediately after turn start.
    * - **Voice** — orchestrate the transcript in `maybeCreateResponseImpl` after transcription.
    *
    * @see {@link https://openai.github.io/openai-agents-js/guides/multi-agent/ | Agent orchestration}
    *
    * Used in:
-   * - `controllers/realtime-ws.ts` — WebSocket `turn.start` handler (voice turns)
-   * - `controllers/agent/session-manager.ts` — `processTextTurn`
+   * - `controllers/websocket.ts` — WebSocket `turn.start` handler (voice turns)
+   * - `conversation/session-manager.ts` — `processTextTurn`
    */
   async beginTurn(
     metadata: TurnMetadata,
@@ -189,7 +188,7 @@ export class TurnSessionManager {
 
     if (!metadata.hasAudio && metadata.question?.trim())
       try {
-        // Unified orchestrator: route study output or continue to Realtime below.
+        // Unified orchestrator: route study output or continue to conversation assistant below.
         const orchestrated = await this.runOrchestratedTurn(
           metadata.question.trim(),
           metadata,
@@ -267,13 +266,13 @@ export class TurnSessionManager {
       };
 
       /**
-       * Voice path: after transcription, triage before Realtime `response.create`.
+       * Voice path: after transcription, triage before the model responds.
        * @see {@link https://openai.github.io/openai-agents-js/guides/multi-agent/ | Agent orchestration}
        */
       const maybeCreateResponseImpl = async () => {
         if (responseCreateSent || !audioCommitSent || !metadata.hasAudio || !transcriptionFinalized) return;
 
-        if (isEmptyOrDictionaryHallucination(transcript)) {
+        if (isEmptyOrDisambiguationHallucination(transcript)) {
           skipTurn();
           return;
         }
@@ -291,7 +290,7 @@ export class TurnSessionManager {
           return;
         }
 
-        logUserPrompt('Realtime assistant', transcript, {
+        logUserPrompt('Conversation assistant', transcript, {
           hasImage: Boolean(metadata.imageDataUrl),
           typedQuestion: metadata.question?.trim() || undefined,
         });
@@ -388,7 +387,7 @@ export class TurnSessionManager {
         }
 
         if (event.type === 'response.created') {
-          logOpenAiRequest('Realtime assistant');
+          logOpenAiRequest('Conversation assistant');
           logOpenAiThinking();
         }
 
@@ -412,7 +411,7 @@ export class TurnSessionManager {
 
           const usage = usageFromRealtimeResponse(event.response?.usage);
           if (usage) {
-            logOpenAiUsage('Realtime assistant', usage);
+            logOpenAiUsage('Conversation assistant', usage);
           }
 
           if (status !== 'completed') {
@@ -454,7 +453,7 @@ export class TurnSessionManager {
 
       if (messageContent.length > 0) {
         if (metadata.question?.trim()) {
-          logUserPrompt('Realtime assistant', metadata.question, {
+          logUserPrompt('Conversation assistant', metadata.question, {
             hasImage: Boolean(metadata.imageDataUrl),
             hasAudio: Boolean(metadata.hasAudio),
           });
@@ -500,7 +499,7 @@ export class TurnSessionManager {
     return streamingTurn;
   }
 
-  private async getSession(): Promise<RealtimeSession> {
+  private async getSession(): Promise<ConversationSession> {
     if (this.session?.transport.status === 'connected') return this.session;
 
     if (this.connectPromise) return this.connectPromise;
@@ -513,14 +512,14 @@ export class TurnSessionManager {
     }
   }
 
-  private async connect(): Promise<RealtimeSession> {
+  private async connect(): Promise<ConversationSession> {
     const apiKey = process.env.OPENAI_API_KEY;
     if (!apiKey) throw new Error('OPENAI_API_KEY is not set');
 
-    const session = new RealtimeSessionClass(createAgent(this.agentTools), createSessionConfig());
+    const session = new ConversationSession(createAgent(this.agentTools), createSessionConfig());
     const transcriptionPrompt = buildTranscriptionPrompt();
 
-    if (transcriptionPrompt) logTurn('session dictionary loaded', {
+    if (transcriptionPrompt) logTurn('session disambiguation loaded', {
         promptLength: transcriptionPrompt.length,
       });
     

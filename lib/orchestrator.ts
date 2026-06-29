@@ -20,8 +20,10 @@ import {
   type RetrieveStudyOutputResult,
 } from '../tools/study-output-tools/retrieve-existing-study-output.ts';
 
+/** Reply token when the orchestrator routes to general conversation. Used in `lib/orchestrator.ts`, `conversation/session-manager.ts`, and `test/study-output.test.ts`. */
 export const GENERAL_ROUTE = 'general';
 
+/** Return shape from `resolveStudyOutputFromRun`; nested in `OrchestratorResult`. */
 export type StudyOutputRunResult = {
   markdown: string;
   emailed: boolean;
@@ -29,6 +31,7 @@ export type StudyOutputRunResult = {
   source: 'archive' | 'generated' | 'message';
 };
 
+/** Return type for `runOrchestrator`. */
 export type OrchestratorResult =
   | { route: typeof GENERAL_ROUTE }
   | { route: 'lesson' | 'exercises'; result: StudyOutputRunResult };
@@ -129,6 +132,7 @@ function parseGenerateResult(value: unknown): GenerateStudyOutputResult | undefi
   };
 }
 
+/** Used in `resolveOrchestratorFromRun`. Used in `test/study-output.test.ts`. */
 export function resolveStudyOutputFromRun(
   result: { newItems: RunItem[]; finalOutput?: string | null },
   retrieveToolName: string,
@@ -177,6 +181,7 @@ export function resolveStudyOutputFromRun(
   throw new Error('Orchestrator did not produce a response');
 }
 
+/** Used in `runOrchestrator`. Used in `test/study-output.test.ts`. */
 export function resolveOrchestratorFromRun(
   result: { newItems: RunItem[]; finalOutput?: string | null },
 ): OrchestratorResult {
@@ -212,10 +217,7 @@ export function resolveOrchestratorFromRun(
   throw new Error('Orchestrator did not produce a response');
 }
 
-/**
- * Single entry point for routing user messages to general conversation, lessons,
- * or exercises. Used by the Realtime session, CLI scripts, and study-output tools.
- */
+/** Imported in `agent-lesson.ts`, `agent-exercises.ts`, and `conversation/session-manager.ts`. */
 export async function runOrchestrator(userPrompt: string): Promise<OrchestratorResult> {
   assertAgentEnv();
 

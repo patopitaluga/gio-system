@@ -1,8 +1,9 @@
 import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'fs';
 import path from 'path';
-import { projectRoot } from '../config/workspace.ts';
+import { projectRoot } from './workspace.ts';
 import { formatCurrentDate } from './study-plan-context.ts';
 
+/** Used in `lib/save-study-output.ts`, `tools/study-output-tools/retrieve-existing-study-output.ts`, and `lib/log-study-output-status.ts`. */
 export type StudyOutputKind = 'lessons' | 'exercises';
 
 const DATE_FILENAME_PATTERN = /^(\d{4}-\d{2}-\d{2})\.md$/;
@@ -12,9 +13,7 @@ function resolveCanonicalOutputPath(dir: string, dateIso: string): string {
 }
 
 /**
- * Used in:
- * - `agent-lesson.ts` — after `generateDailyLesson()`
- * - `agent-exercises.ts` — after `generateDailyExercises()`
+ * Imported in `agent-lesson.ts` and `agent-exercises.ts`.
  */
 export function saveStudyOutput(
   kind: StudyOutputKind,
@@ -54,11 +53,7 @@ function readStudyOutputFile(
   };
 }
 
-/**
- * Used in:
- * - `cronjob.ts` — skip generation when today's lesson file already exists
- * - `tools/study-output-tools/retrieve-existing-study-output.ts` — `retrieve_existing_lesson` tool
- */
+/** Imported in `cronjob.ts` and `tools/study-output-tools/retrieve-existing-study-output.ts`. Used in `test/study-output.test.ts`. */
 export function readPreviousLesson(
   dateIso: string,
   root = projectRoot,
@@ -66,11 +61,7 @@ export function readPreviousLesson(
   return readStudyOutputFile('lessons', dateIso, root);
 }
 
-/**
- * Used in:
- * - `cronjob.ts` — skip generation when today's exercises file already exists
- * - `tools/study-output-tools/retrieve-existing-study-output.ts` — `retrieve_existing_exercises` tool
- */
+/** Imported in `cronjob.ts` and `tools/study-output-tools/retrieve-existing-study-output.ts`. Used in `test/study-output.test.ts`. */
 export function readPreviousExercise(
   dateIso: string,
   root = projectRoot,
@@ -78,10 +69,7 @@ export function readPreviousExercise(
   return readStudyOutputFile('exercises', dateIso, root);
 }
 
-/**
- * Used in:
- * - `lib/orchestrator.ts` — lists recent saved dates in orchestrator instructions
- */
+/** Imported in `lib/orchestrator.ts`. Used in `test/study-output.test.ts`. */
 export function listStudyOutputDates(
   kind: StudyOutputKind,
   limit = 10,

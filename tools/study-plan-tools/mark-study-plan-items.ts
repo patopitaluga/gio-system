@@ -4,16 +4,10 @@ import { z } from 'zod';
 import { formatCurrentDate } from '../../lib/study-plan-context.ts';
 import { markStudyPlanItems } from '../../lib/study-plan-mark.ts';
 
+/** Used in `agent-lesson.ts`, `agent-exercises.ts`, and `lib/orchestrator.ts`. */
 export const MARK_STUDY_PLAN_ITEMS_TOOL_NAME = 'mark_study_plan_items';
 
-/**
- * Tool that writes to `study-plan.md`, turning `- [ ]` into `- [x]` for today's
- * matching plan lines. Used by `agent-lesson.ts` (theory items) and
- * `agent-exercises.ts` (exercise/practice items).
- *
- * @see {@link https://openai.github.io/openai-agents-js/guides/tools/ | Agents SDK — tools}
- * @see ../../lib/study-plan-mark.ts — file update logic
- */
+/** Imported in `agent-lesson.ts` and `agent-exercises.ts`. */
 export const markStudyPlanItemsTool = tool({
   name: MARK_STUDY_PLAN_ITEMS_TOOL_NAME,
   description:
@@ -50,22 +44,25 @@ function getToolCallName(item: RunItem): string | undefined {
   return undefined;
 }
 
-/** Logs a warning when the lesson agent did not call mark_study_plan_items (optional for some plan days). */
-export function warnIfMarkStudyPlanToolMissing(result: { newItems: RunItem[] }): void {
+function ensureMarkStudyPlanToolUsed(result: { newItems: RunItem[] }, required: boolean): void {
   const called = result.newItems.some(
     (item) => getToolCallName(item) === MARK_STUDY_PLAN_ITEMS_TOOL_NAME,
   );
 
-  if (!called)
-    console.warn(`[gio-system] Warning: ${MARK_STUDY_PLAN_ITEMS_TOOL_NAME} was not called.`);
+  if (called) return;
+
+  if (required)
+    throw new Error(`Agent did not call required tool: ${MARK_STUDY_PLAN_ITEMS_TOOL_NAME}`);
+
+  console.warn(`[gio-system] Warning: ${MARK_STUDY_PLAN_ITEMS_TOOL_NAME} was not called.`);
 }
 
-/** Ensures the agent called {@link markStudyPlanItemsTool} before finishing. */
-export function assertMarkStudyPlanToolUsed(result: { newItems: RunItem[] }): void {
-  const called = result.newItems.some(
-    (item) => getToolCallName(item) === MARK_STUDY_PLAN_ITEMS_TOOL_NAME,
-  );
+/** Imported in `agent-lesson.ts`. */
+export function warnIfMarkStudyPlanToolMissing(result: { newItems: RunItem[] }): void {
+  ensureMarkStudyPlanToolUsed(result, false);
+}
 
-  if (!called)
-    throw new Error(`Agent did not call required tool: ${MARK_STUDY_PLAN_ITEMS_TOOL_NAME}`);
+/** Imported in `agent-exercises.ts`. */
+export function assertMarkStudyPlanToolUsed(result: { newItems: RunItem[] }): void {
+  ensureMarkStudyPlanToolUsed(result, true);
 }

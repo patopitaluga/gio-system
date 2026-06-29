@@ -16,7 +16,7 @@ function getToolCallName(item: RunItem): string | undefined {
   return raw.name;
 }
 
-/** Returns parsed tool outputs for a given tool name, in call order. */
+/** Imported in `lib/orchestrator.ts`. Used in `test/study-output.test.ts`. */
 export function getToolOutputs<T>(
   items: RunItem[],
   toolName: string,
@@ -47,6 +47,7 @@ export function getToolOutputs<T>(
   return results;
 }
 
+/** Imported in `lib/orchestrator.ts`. Used in `test/study-output.test.ts`. */
 export function wasAnyToolUsed(items: RunItem[], toolNames: string[]): boolean {
   const allowed = new Set(toolNames);
 

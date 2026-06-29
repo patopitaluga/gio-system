@@ -1,6 +1,7 @@
 import { styleText } from 'node:util';
 import type { StudyOutputKind } from './save-study-output.ts';
 
+/** Parameter type for `logStudyOutputStatus`. */
 export type StudyOutputSource = 'archive' | 'generated' | 'message';
 
 const STATUS_LABELS: Record<
@@ -17,7 +18,7 @@ const STATUS_LABELS: Record<
   },
 };
 
-/** Prints a colored CLI line indicating whether content was loaded or newly created. */
+/** Imported in `agent-lesson.ts`, `agent-exercises.ts`, and `cronjob.ts`. Used in `test/study-output.test.ts`. */
 export function logStudyOutputStatus(
   kind: StudyOutputKind,
   source: StudyOutputSource,

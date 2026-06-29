@@ -1,15 +1,20 @@
 import { tool } from '@openai/agents';
 import { z } from 'zod';
 
+/** Used in `lib/orchestrator.ts`. */
 export const GENERATE_NEW_LESSON_TOOL_NAME = 'generate_new_lesson';
+
+/** Used in `lib/orchestrator.ts`. */
 export const GENERATE_NEW_EXERCISES_TOOL_NAME = 'generate_new_exercises';
 
+/** JSON payload from generate study-output tools; parsed in `lib/orchestrator.ts`. */
 export type GenerateStudyOutputResult = {
   markdown: string;
   savedPath: string;
   emailed: boolean;
 };
 
+/** Imported in `lib/orchestrator.ts`. */
 export function createGenerateNewLessonTool() {
   return tool({
     name: GENERATE_NEW_LESSON_TOOL_NAME,
@@ -36,6 +41,7 @@ export function createGenerateNewLessonTool() {
   });
 }
 
+/** Imported in `lib/orchestrator.ts`. */
 export function createGenerateNewExercisesTool() {
   return tool({
     name: GENERATE_NEW_EXERCISES_TOOL_NAME,

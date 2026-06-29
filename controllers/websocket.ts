@@ -3,8 +3,8 @@ import type { WebSocket } from 'ws';
 import { WebSocketServer } from 'ws';
 import Tokens from 'csrf';
 import { parse as parseCookieHeader } from 'cookie';
-import type { TurnSessionManager } from './agent/session-manager.ts';
-import type { StreamingTurn } from './agent/types.ts';
+import type { TurnSessionManager } from '../conversation/session-manager.ts';
+import type { StreamingTurn } from '../conversation/types.ts';
 import { logTurnError } from '../utils/turn-log.ts';
 
 const tokens = new Tokens();
@@ -40,7 +40,8 @@ function sendJson(socket: WebSocket, payload: Record<string, unknown>) {
     socket.send(JSON.stringify(payload));
 }
 
-export function attachRealtimeWebSocket(server: import('http').Server, sessionManager: TurnSessionManager) {
+/** Imported in `server.ts`. */
+export function attachWebSocket(server: import('http').Server, sessionManager: TurnSessionManager) {
   const wss = new WebSocketServer({ server, path: '/ws' });
 
   wss.on('connection', (socket, request) => {

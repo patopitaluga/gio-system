@@ -17,6 +17,7 @@ type DailySchedule = {
   run: () => Promise<unknown>;
 };
 
+/** Used in `cronjob.ts` (`SCHEDULES`). */
 export const LESSON_SCHEDULE: DailySchedule = {
   id: 'lesson',
   label: 'Daily lesson',
@@ -40,6 +41,7 @@ export const LESSON_SCHEDULE: DailySchedule = {
   },
 };
 
+/** Used in `cronjob.ts` (`SCHEDULES`). */
 export const EXERCISES_SCHEDULE: DailySchedule = {
   id: 'exercises',
   label: 'Daily exercises',

@@ -2,9 +2,9 @@ import path from 'path';
 import { mkdirSync, readFileSync, unlinkSync } from 'fs';
 import type { Request, Response } from 'express';
 import multer from 'multer';
-import type { TurnSessionManager } from './agent/session-manager.ts';
-import type { TurnMetadata } from './agent/types.ts';
-import { projectRoot } from '../config/workspace.ts';
+import type { TurnSessionManager } from '../conversation/session-manager.ts';
+import type { TurnMetadata } from '../conversation/types.ts';
+import { projectRoot } from '../lib/workspace.ts';
 import { logTurn, logTurnError } from '../utils/turn-log.ts';
 
 const uploadsDir = path.join(projectRoot, 'temp-uploads');
@@ -24,6 +24,7 @@ function imageFileToDataUrl(filePath: string, mimeType: string): string {
   return `data:${mimeType};base64,${data.toString('base64')}`;
 }
 
+/** Imported in `server.ts`. */
 export function createTurnPostHandler(sessionManager: TurnSessionManager) {
   return (req: Request, res: Response) => {
     uploadImage(req, res, async () => {

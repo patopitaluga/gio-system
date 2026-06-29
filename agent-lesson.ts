@@ -27,9 +27,10 @@ import {
   markStudyPlanItemsTool,
 } from './tools/study-plan-tools/mark-study-plan-items.ts';
 
-/** Default user prompt for cron and for `npm run lesson` with no args. */
+/** Used in `cronjob.ts` and as the default CLI prompt when `npm run lesson` has no args. */
 export const DEFAULT_LESSON_PROMPT = 'Generate the lesson for today.';
 
+/** Return type for `generateDailyLesson` and `getLesson`. */
 export type LessonRunResult = {
   markdown: string;
   emailed: boolean;
@@ -37,6 +38,7 @@ export type LessonRunResult = {
   source: 'archive' | 'generated' | 'message';
 };
 
+/** Used in `createLessonAgent`. */
 function buildSystemInstructions(studyPlan: string, today: StudyPlanDate): string {
   const emailRule = isEmailConfigured()
     ? `9. Call ${SEND_EMAIL_TOOL_NAME} only when the user explicitly asks to send or email the lesson. Include the full lesson as plain text; you may omit html. Otherwise return the lesson as your final response only — do not send email on your own.`
@@ -76,10 +78,7 @@ Output format:
 - End with the lesson content only — no closing offers or teasers.`;
 }
 
-/**
- * {@link markStudyPlanItemsTool} marks covered items in `study-plan.md`.
- * {@link createSendEmailAgentTool} sends the lesson when the user asks for email delivery.
- */
+/** Used in `generateDailyLesson`. */
 function createLessonAgent(studyPlan: string, today: StudyPlanDate): Agent {
   const tools = [markStudyPlanItemsTool];
 
@@ -92,6 +91,7 @@ function createLessonAgent(studyPlan: string, today: StudyPlanDate): Agent {
   });
 }
 
+/** Used in `generateDailyLesson`. */
 function wasToolUsed(result: { newItems: RunItem[] }, toolName: string): boolean {
   return result.newItems.some((item) => {
     if (item.type !== 'tool_call_item') return false;
@@ -101,7 +101,7 @@ function wasToolUsed(result: { newItems: RunItem[] }, toolName: string): boolean
   });
 }
 
-/** Generates a lesson via the language teacher agent (always calls OpenAI). */
+/** Imported in `tools/study-output-tools/generate-study-output-tool.ts` (`generate_new_lesson`). Used in `cronjob.ts`. */
 export async function generateDailyLesson(userPrompt: string): Promise<LessonRunResult> {
   assertAgentEnv();
 
@@ -130,7 +130,7 @@ export async function generateDailyLesson(userPrompt: string): Promise<LessonRun
   };
 }
 
-/** Routes lesson requests through the unified orchestrator. */
+/** Imported in `test/integration/study-output.test.ts`. Used in CLI (`npm run lesson`). */
 export async function getLesson(userPrompt: string): Promise<LessonRunResult> {
   const outcome = await runOrchestrator(userPrompt);
 
@@ -149,7 +149,7 @@ export async function getLesson(userPrompt: string): Promise<LessonRunResult> {
   return result;
 }
 
-/** Sends an already-generated lesson by email. Used by cron and other callers. */
+/** Imported in `cronjob.ts`. */
 export async function sendLessonByEmail(lessonMarkdown: string): Promise<SendEmailResult> {
   const today = formatCurrentDate();
 
@@ -160,6 +160,7 @@ export async function sendLessonByEmail(lessonMarkdown: string): Promise<SendEma
   });
 }
 
+/** Used in CLI entry when this file is the main module. */
 function readCliPrompt(): string {
   const args = process.argv.slice(2).join(' ').trim();
 

@@ -6,7 +6,7 @@ import {
   parseToolArguments,
   responseHasToolCalls,
   toError,
-} from '../controllers/agent/turn-helpers.ts';
+} from '../conversation/turn-helpers.ts';
 
 describe('parseToolArguments', () => {
   it('returns empty object for missing input', () => {
@@ -33,10 +33,10 @@ describe('formatToolAction', () => {
     );
   });
 
-  it('formats tool errors with a fallback target', () => {
+  it('formats tool errors', () => {
     assert.equal(
       formatToolAction('send_email', {}, 'Error: SMTP is not configured'),
-      'send_email failed on file: Error: SMTP is not configured',
+      'send_email failed: Error: SMTP is not configured',
     );
   });
 

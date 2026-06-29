@@ -1,6 +1,7 @@
 import { readFileSync, writeFileSync } from 'fs';
 import { STUDY_PLAN_PATH } from './study-plan-context.ts';
 
+/** Used in `markStudyPlanItems`. Imported in `test/study-plan-mark.test.ts`. */
 export function markStudyPlanItemInContent(
   content: string,
   itemText: string,
@@ -49,6 +50,7 @@ export function markStudyPlanItemInContent(
   return { content: updatedContent, marked: itemText };
 }
 
+/** Imported in `tools/study-plan-tools/mark-study-plan-items.ts`. */
 export function markStudyPlanItems(itemTexts: string[], todayLabel: string): string[] {
   let content = readFileSync(STUDY_PLAN_PATH, 'utf8');
   const marked: string[] = [];

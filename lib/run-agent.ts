@@ -2,7 +2,7 @@ import { type Agent } from '@openai/agents';
 import { createAgentRunTrace } from './agent-run-trace.ts';
 import { logUserPrompt } from '../utils/turn-log.ts';
 
-/** Runs an agent and logs each API request, tool call, and token usage to the console. */
+/** Imported in `agent-lesson.ts`, `agent-exercises.ts`, `agent-interests.ts`, and `lib/orchestrator.ts`. */
 export async function runLoggedAgent<TAgent extends Agent<any, any>>(
   agent: TAgent,
   input: string,

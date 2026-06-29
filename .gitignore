@@ -1,7 +1,7 @@
 node_modules
 .env
 agent-context.md
-dictionary.md
+disambiguation.md
 plugins/
 .cursor/
 temp-uploads/

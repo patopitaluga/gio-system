@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { filterNamedTools, getToolName } from '../config/tools.ts';
+import { filterNamedTools, getToolName } from '../lib/tools.ts';
 
 describe('filterNamedTools', () => {
   it('removes tools without a name', () => {

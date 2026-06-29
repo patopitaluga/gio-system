@@ -1,5 +1,5 @@
 import { Agent } from '@openai/agents';
-import { loadAgentContext } from './config/agent-context.ts';
+import { loadAgentContext } from './lib/agent-context.ts';
 import { runLoggedAgent } from './lib/run-agent.ts';
 import { assertAgentEnv, formatCurrentDate } from './lib/study-plan-context.ts';
 import { loadInterestsFile } from './lib/save-interests.ts';
@@ -74,10 +74,7 @@ function buildConversationInput(
   ].join('\n');
 }
 
-/**
- * Analyzes a completed user/assistant exchange and may persist a new interest.
- * Used after lesson, exercises, and Realtime turns — not after cron-only generation.
- */
+/** Used in `scheduleInterestsAnalysis`. */
 export async function analyzeConversationInterests(
   userPrompt: string,
   assistantResponse: string,
@@ -96,7 +93,7 @@ export async function analyzeConversationInterests(
   await runLoggedAgent(agent, input, 'Interests observer');
 }
 
-/** Fire-and-forget interests analysis so the user turn is not blocked. */
+/** Imported in `conversation/session-manager.ts`, `agent-lesson.ts`, and `agent-exercises.ts`. */
 export function scheduleInterestsAnalysis(
   userPrompt: string,
   assistantResponse: string,

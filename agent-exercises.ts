@@ -27,9 +27,10 @@ import {
   markStudyPlanItemsTool,
 } from './tools/study-plan-tools/mark-study-plan-items.ts';
 
-/** Default user prompt for cron and for `npm run exercises` with no args. */
+/** Used in `cronjob.ts` and as the default CLI prompt when `npm run exercises` has no args. */
 export const DEFAULT_EXERCISES_PROMPT = 'Generate the exercises for today.';
 
+/** Return type for `generateDailyExercises` and `getExercises`. */
 export type ExercisesRunResult = {
   markdown: string;
   emailed: boolean;
@@ -37,6 +38,7 @@ export type ExercisesRunResult = {
   source: 'archive' | 'generated' | 'message';
 };
 
+/** Used in `createExercisesAgent`. */
 function buildSystemInstructions(studyPlan: string, today: StudyPlanDate): string {
   const emailRule = isEmailConfigured()
     ? `9. Call ${SEND_EMAIL_TOOL_NAME} only when the user explicitly asks to send or email the exercises. Include the full exercises as plain text; you may omit html. Otherwise return the exercises as your final response only — do not send email on your own.`
@@ -76,10 +78,7 @@ Output format:
 - End with the exercises only — no closing offers or teasers.`;
 }
 
-/**
- * {@link markStudyPlanItemsTool} marks covered items in `study-plan.md`.
- * {@link createSendEmailAgentTool} sends the exercises when the user asks for email delivery.
- */
+/** Used in `generateDailyExercises`. */
 function createExercisesAgent(studyPlan: string, today: StudyPlanDate): Agent {
   const tools = [markStudyPlanItemsTool];
 
@@ -92,6 +91,7 @@ function createExercisesAgent(studyPlan: string, today: StudyPlanDate): Agent {
   });
 }
 
+/** Used in `generateDailyExercises`. */
 function wasToolUsed(result: { newItems: RunItem[] }, toolName: string): boolean {
   return result.newItems.some((item) => {
     if (item.type !== 'tool_call_item') return false;
@@ -101,7 +101,7 @@ function wasToolUsed(result: { newItems: RunItem[] }, toolName: string): boolean
   });
 }
 
-/** Generates exercises via the language teacher agent (always calls OpenAI). */
+/** Imported in `tools/study-output-tools/generate-study-output-tool.ts` (`generate_new_exercises`). Used in `cronjob.ts`. */
 export async function generateDailyExercises(userPrompt: string): Promise<ExercisesRunResult> {
   assertAgentEnv();
 
@@ -130,7 +130,7 @@ export async function generateDailyExercises(userPrompt: string): Promise<Exerci
   };
 }
 
-/** Routes exercises requests through the unified orchestrator. */
+/** Used in CLI (`npm run exercises`). */
 export async function getExercises(userPrompt: string): Promise<ExercisesRunResult> {
   const outcome = await runOrchestrator(userPrompt);
 
@@ -149,7 +149,7 @@ export async function getExercises(userPrompt: string): Promise<ExercisesRunResu
   return result;
 }
 
-/** Sends already-generated exercises by email. Used by cron and other callers. */
+/** Imported in `cronjob.ts`. */
 export async function sendExercisesByEmail(exercisesMarkdown: string): Promise<SendEmailResult> {
   const today = formatCurrentDate();
 
@@ -160,6 +160,7 @@ export async function sendExercisesByEmail(exercisesMarkdown: string): Promise<S
   });
 }
 
+/** Used in CLI entry when this file is the main module. */
 function readCliPrompt(): string {
   const args = process.argv.slice(2).join(' ').trim();
 

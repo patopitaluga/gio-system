@@ -2,7 +2,7 @@
 
 Gio-System is a personal language-learning assistant. Talk or type to practice conversation, request daily lessons and exercises from your study plan, and optionally receive them by email on a schedule.
 
-The app combines an OpenAI **Realtime** tutor (voice, text, and images) with dedicated **lesson** and **exercises** agents that read `study-plan.md`, save output as dated markdown files, and mark completed plan items.
+The app combines a multimodal **conversation assistant** (voice, text, and images via `gpt-realtime-1.5`) with dedicated **lesson** and **exercises** agents that read `study-plan.md`, save output as dated markdown files, and mark completed plan items.
 
 ------
 
@@ -26,7 +26,7 @@ The app combines an OpenAI **Realtime** tutor (voice, text, and images) with ded
 
 - [Node.js](https://nodejs.org/) **24.7** or later (runs `.ts` files directly; no frontend build step)
 - [npm](https://www.npmjs.com/) **11.5** or later
-- An OpenAI API key with access to Realtime models (for example `gpt-realtime-1.5`, `gpt-4o-mini-transcribe`) and the Agents API used for lessons and exercises
+- An OpenAI API key with access to multimodal models (for example `gpt-realtime-1.5`, `gpt-4o-mini-transcribe`) and the Agents API used for lessons and exercises
 
 ------
 
@@ -36,7 +36,7 @@ The app combines an OpenAI **Realtime** tutor (voice, text, and images) with ded
 npm install
 cp .env.example .env
 cp agent-context.example.md agent-context.md
-cp dictionary.example.md dictionary.md
+cp disambiguation.example.md disambiguation.md
 ```
 
 Create `study-plan.md` in the project root (the file is gitignored). This is the curriculum the lesson and exercises agents follow — daily entries with theoretical topics and practice items, using checkbox lines the agents can mark as completed.
@@ -47,7 +47,7 @@ Edit `.env` and set at least your API key:
 OPENAI_API_KEY=sk-...
 ```
 
-Restart the server after changing `.env`, `agent-context.md`, `dictionary.md`, `study-plan.md`, or plugins under `plugins/`.
+Restart the server after changing `.env`, `agent-context.md`, `disambiguation.md`, `study-plan.md`, or plugins under `plugins/`.
 
 Run tests:
 
@@ -78,22 +78,30 @@ Both folders are gitignored.
 
 ### Agent context
 
-`agent-context.md` is gitignored. Describe your target language, level, goals, and how you want the tutor to behave. It is appended to the Realtime assistant's instructions.
+Copy `agent-context.example.md` to `agent-context.md` (gitignored) and edit it for your learning profile: native language, target language, level, goals, and how you want the tutor to behave.
+
+The file is appended to the conversation assistant's instructions and also informs the background **interests** observer after each turn.
 
 Optional: set `AGENT_CONTEXT_PATH` in `.env` to use a different file.
 
-### Speech dictionary
+### Disambiguation
 
-`dictionary.md` is gitignored. List words and acronyms that voice transcription often gets wrong (for example `MCP — Model Context Protocol, not MSP`).
+Copy `disambiguation.example.md` to `disambiguation.md` (gitignored). List words and spellings that voice transcription often gets wrong — names, place names, app terms, or phrases you say in your native language (for example `Gio-System — this app name` or `SCV — my company, not "ese ce ve"`).
 
-The dictionary is loaded into:
+The file is loaded into:
 
-- the Realtime agent's instructions (full file)
+- the conversation assistant's instructions (full file)
 - the transcription prompt for `gpt-4o-mini-transcribe` (first 1024 characters)
 
 Put the most important terms first if the file is long.
 
-Optional: set `DICTIONARY_PATH` in `.env` to use a different file.
+Optional: set `DISAMBIGUATION_PATH` in `.env` to use a different file.
+
+### Interests
+
+After lesson, exercises, or conversation turns, a background agent may append language-learning topics you expressed interest in to `interests.md` (gitignored). Use this as a running list of themes to revisit in future lessons or conversation.
+
+The observer reads `agent-context.md` to infer your target language and goals, and skips duplicates already in the file.
 
 ### Email delivery
 
@@ -106,7 +114,7 @@ See [Environment variables](#environment-variables) for SMTP settings.
 Local plugins live in the gitignored `plugins/` folder. Each plugin is a subdirectory with an `index.ts` that exports `tools`:
 
 ```typescript
-export const tools = [ /* Realtime tool definitions */ ];
+export const tools = [ /* conversation tool definitions */ ];
 ```
 
 Copy from `plugins.example/hello/` to try the sample `echo` plugin:
@@ -173,11 +181,30 @@ npm run lint:fix
 
 ## How routing works
 
-Every user message goes through a single orchestrator (`lib/orchestrator.ts`) before the Realtime tutor sees it:
+Every user message goes through a single orchestrator (`lib/orchestrator.ts`) before the conversation assistant sees it:
+
+```mermaid
+flowchart TD
+  User([User asks])
+  Orch[Orchestrator]
+  Lesson[Lesson generator]
+  Exercises[Exercises generator]
+  Conversation[Conversation assistant]
+  Interests[Interests observer]
+
+  User --> Orch
+  Orch -->|lesson| Lesson
+  Orch -->|exercises| Exercises
+  Orch -->|general| Conversation
+  Lesson --> Interests
+  Exercises --> Interests
+  Conversation --> Interests
+  User --> Interests
+```
 
 1. **Lesson request** — retrieve a saved lesson or generate a new one from the study plan.
 2. **Exercises request** — retrieve saved exercises or generate new ones.
-3. **General** — open conversation, language Q&A, email requests, etc. Handled by the Realtime assistant.
+3. **General** — open conversation, language Q&A, email requests, etc. Handled by the conversation assistant.
 
 The orchestrator runs as one Agents SDK call with tools (`retrieve_existing_lesson`, `generate_new_lesson`, and the exercises equivalents). Lesson and exercises requests no longer require a separate routing step.
 
@@ -185,11 +212,13 @@ The cron job is a special case: it checks the filesystem directly and calls the 
 
 Server logs include the full user prompt sent to OpenAI, prefixed with `[gio-system:prompt]`.
 
+After each lesson, exercises, or conversation turn completes, an interests observer may append new topics to `interests.md` in the background.
+
 ------
 
 ## Interface
 
-- **Microphone** — hold to speak; PCM audio is streamed over WebSocket (`/ws`) to the server, which forwards it to the OpenAI Realtime API.
+- **Microphone** — hold to speak; PCM audio is sent over WebSocket (`/ws`) to the server, which forwards it to the OpenAI Realtime API for transcription and response.
 - **Text field + Send** — type a question or instruction; sent via `POST /turn` or the WebSocket for voice turns with typed context.
 - **Camera** — attach a photo; the agent can read handwritten notes or diagrams in the image.
 
@@ -214,9 +243,9 @@ These run when you ask for lesson or exercise content in the app or via CLI. You
 
 The generators also call `mark_study_plan_items` to check off covered plan entries.
 
-### Realtime assistant (general conversation)
+### Conversation assistant (general chat)
 
-When the orchestrator routes to general conversation, the Realtime session may use:
+When the orchestrator routes to general conversation, the conversation assistant may use:
 
 | Tool | When available | Action |
 |------|----------------|--------|
@@ -231,25 +260,35 @@ When the orchestrator routes to general conversation, the Realtime session may u
 gio-system/
 ├── agent-lesson.ts          # Lesson generator + CLI entry
 ├── agent-exercises.ts       # Exercises generator + CLI entry
+├── agent-interests.ts       # Background interests observer after each turn
+├── agent-context.example.md # Template for agent-context.md
+├── disambiguation.example.md # Template for disambiguation.md
 ├── cronjob.ts               # Daily lesson/exercises email scheduler
 ├── server.ts                # Express server
 ├── study-plan.md            # Your curriculum (gitignored)
+├── interests.md             # Saved learning topics (gitignored)
 ├── lessons/                 # Saved lessons by date (gitignored)
 ├── exercises/               # Saved exercises by date (gitignored)
 ├── components/              # Vue UI (loaded at runtime, no bundler)
-├── config/                  # Workspace paths, agent context, dictionary, plugins
+├── conversation/            # Conversation assistant: session, instructions, turns
 ├── controllers/
-│   ├── agent/               # Realtime session, instructions, turn handling
 │   ├── turn-http.ts         # POST /turn (text + optional image)
-│   └── realtime-ws.ts       # WebSocket /ws (voice turns)
+│   └── websocket.ts         # WebSocket /ws (voice turns)
 ├── electron/                # Electron main process
 ├── lib/
 │   ├── orchestrator.ts      # Unified routing: general / lesson / exercises
+│   ├── agent-context.ts     # Loader for agent-context.md
+│   ├── disambiguation.ts    # Loader for disambiguation.md
+│   ├── plugins.ts           # Loader for plugins/
+│   ├── tools.ts             # Conversation tool types and helpers
+│   ├── workspace.ts         # Project root path
 │   ├── save-study-output.ts # Read/write dated lesson and exercise files
+│   ├── save-interests.ts    # Read/write interests.md
 │   └── study-plan-*.ts      # Study plan loading and marking
 ├── public/                  # Static assets (CSS, speech preview script)
 ├── tools/
 │   ├── communication-tools/ # send_email
+│   ├── interest-tools/      # save_interest (used by interests observer)
 │   ├── study-output-tools/  # retrieve / generate lesson & exercises
 │   └── study-plan-tools/    # mark_study_plan_items
 ├── plugins.example/         # Sample plugin (copy into gitignored plugins/)
@@ -267,7 +306,7 @@ The frontend uses Vue 3 and `vue3-sfc-loader` from a CDN — `.vue` files are co
 |----------|-------------|---------|
 | `OPENAI_API_KEY` | OpenAI API key | — |
 | `AGENT_CONTEXT_PATH` | Path to personal agent context markdown | `agent-context.md` |
-| `DICTIONARY_PATH` | Path to speech dictionary | `dictionary.md` |
+| `DISAMBIGUATION_PATH` | Path to speech disambiguation terms | `disambiguation.md` |
 | `SPEECH_PREVIEW` | Browser speech preview while recording (`false` to disable) | enabled |
 | `PLUGINS_DIR` | Folder for local plugins | `plugins` |
 | `PORT` | Express server port | `3001` |
@@ -278,13 +317,11 @@ The frontend uses Vue 3 and `vue3-sfc-loader` from a CDN — `.vue` files are co
 | `SMTP_PASS` | SMTP password or app password | — |
 | `SMTP_FROM` | From address (defaults to `SMTP_USER`) | — |
 
-`WORKSPACE_DIR` remains in `.env.example` for legacy compatibility but is not used by the current Realtime agent.
-
 ------
 
 ## Security
 
-Gio-System is a **local language learning application**. It runs a server on your machine, stores your OpenAI API key in `.env`, and writes lessons, exercises, and study-plan updates to the project directory.
+Gio-System is a **local language learning application**. It runs a server on your machine, stores your OpenAI API key in `.env`, and writes lessons, exercises, study-plan updates, and interests to the project directory.
 
 Plugins in `plugins/` are local TypeScript modules loaded at startup. Only install plugins you trust — they run with the same privileges as the server.
 

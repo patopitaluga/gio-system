@@ -1,7 +1,7 @@
 {
   "name": "gio-system",
   "version": "1.0.0",
-  "description": "A language learning system powered by AI agents. Practice through voice and text conversations with real-time feedback tailored to your level and goals.",
+  "description": "A language learning system powered by AI agents. Practice through voice and text conversations with feedback tailored to your level and goals.",
   "main": "electron/main.mjs",
   "scripts": {
     "start": "electron .",

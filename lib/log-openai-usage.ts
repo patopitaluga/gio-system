@@ -2,6 +2,7 @@ import { styleText } from 'node:util';
 import type { Usage } from '@openai/agents';
 import { RequestUsage } from '@openai/agents';
 
+/** Used by logging helpers in this file. */
 export type OpenAiUsageSnapshot = {
   requests: number;
   inputTokens: number;
@@ -9,6 +10,7 @@ export type OpenAiUsageSnapshot = {
   totalTokens: number;
 };
 
+/** Used in `lib/agent-run-trace.ts`. Used in `test/study-output.test.ts`. */
 export function usageFromAgentsUsage(usage: Usage): OpenAiUsageSnapshot {
   return {
     requests: usage.requests,
@@ -18,6 +20,7 @@ export function usageFromAgentsUsage(usage: Usage): OpenAiUsageSnapshot {
   };
 }
 
+/** Used in `lib/agent-run-trace.ts`. */
 export function usageFromRequestUsage(entry: RequestUsage): OpenAiUsageSnapshot {
   return {
     requests: 1,
@@ -27,6 +30,7 @@ export function usageFromRequestUsage(entry: RequestUsage): OpenAiUsageSnapshot 
   };
 }
 
+/** Imported in `conversation/session-manager.ts`. Used in `test/study-output.test.ts`. */
 export function usageFromRealtimeResponse(usage: {
   input_tokens?: number;
   output_tokens?: number;
@@ -52,7 +56,7 @@ function formatTokenCount(count: number): string {
   return count.toLocaleString('en');
 }
 
-/** Logs that an OpenAI API request is about to run. */
+/** Imported in `conversation/session-manager.ts`. */
 export function logOpenAiRequest(contextLabel: string, agentName?: string): void {
   const agentSuffix = agentName ? ` (${agentName})` : '';
 
@@ -61,7 +65,7 @@ export function logOpenAiRequest(contextLabel: string, agentName?: string): void
   );
 }
 
-/** Logs token usage after an OpenAI API request completes. */
+/** Imported in `conversation/session-manager.ts` and `lib/agent-run-trace.ts`. */
 export function logOpenAiUsage(
   contextLabel: string,
   usage: OpenAiUsageSnapshot,
@@ -81,6 +85,7 @@ export function logOpenAiUsage(
   );
 }
 
+/** Used in `test/study-output.test.ts`. */
 export function formatOpenAiUsageLine(
   contextLabel: string,
   usage: OpenAiUsageSnapshot,
@@ -90,10 +95,12 @@ export function formatOpenAiUsageLine(
     + `output: ${formatTokenCount(usage.outputTokens)})`;
 }
 
+/** Imported in `conversation/session-manager.ts` and `lib/agent-run-trace.ts`. */
 export function logOpenAiThinking(): void {
   console.log(styleText('dim', '🧠 Thinking...'));
 }
 
+/** Used in `lib/agent-run-trace.ts`. */
 export function logOpenAiResponseReceived(requestNumber: number): void {
   console.log(
     styleText('dim', `  ← OpenAI response received (request ${requestNumber})`),

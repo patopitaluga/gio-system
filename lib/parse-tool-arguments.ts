@@ -1,3 +1,4 @@
+/** Imported in `lib/agent-run-trace.ts`. Re-exported from `conversation/turn-helpers.ts`. Used in `test/turn-helpers.test.ts`. */
 export function parseToolArguments(rawArguments: string | undefined): Record<string, unknown> {
   if (!rawArguments) return {};
 

@@ -6,9 +6,13 @@ import {
   type StudyOutputKind,
 } from '../../lib/save-study-output.ts';
 
+/** Used in `lib/orchestrator.ts`. */
 export const RETRIEVE_EXISTING_LESSON_TOOL_NAME = 'retrieve_existing_lesson';
+
+/** Used in `lib/orchestrator.ts`. */
 export const RETRIEVE_EXISTING_EXERCISES_TOOL_NAME = 'retrieve_existing_exercises';
 
+/** JSON payload from retrieve study-output tools; parsed in `lib/orchestrator.ts`. */
 export type RetrieveStudyOutputResult = {
   found: boolean;
   dateIso: string;
@@ -16,7 +20,7 @@ export type RetrieveStudyOutputResult = {
   savedPath?: string;
 };
 
-/** Loads a saved lesson or exercises file. Used by the retrieve tools and tests. */
+/** Used in retrieve tools below. Used in `test/study-output.test.ts`. */
 export function retrieveStudyOutput(
   kind: StudyOutputKind,
   dateIso: string,
@@ -58,12 +62,14 @@ function createRetrieveExistingStudyOutputTool(
   });
 }
 
+/** Imported in `lib/orchestrator.ts`. */
 export const retrieveExistingLessonTool = createRetrieveExistingStudyOutputTool(
   'lessons',
   RETRIEVE_EXISTING_LESSON_TOOL_NAME,
   'lesson',
 );
 
+/** Imported in `lib/orchestrator.ts`. */
 export const retrieveExistingExercisesTool = createRetrieveExistingStudyOutputTool(
   'exercises',
   RETRIEVE_EXISTING_EXERCISES_TOOL_NAME,

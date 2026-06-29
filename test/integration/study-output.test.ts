@@ -11,7 +11,7 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'fs';
 import path from 'path';
-import { projectRoot } from '../../config/workspace.ts';
+import { projectRoot } from '../../lib/workspace.ts';
 import { getLesson } from '../../agent-lesson.ts';
 
 const runIntegration =
