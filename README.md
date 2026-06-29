@@ -187,7 +187,7 @@ Every user message goes through a single orchestrator (`lib/orchestrator.ts`) be
 ---
 config:
   flowchart:
-    curve: linear
+    curve: stepBefore
 ---
 flowchart TD
   User([User asks])
