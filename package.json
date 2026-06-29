@@ -1,0 +1,51 @@
+{
+  "name": "gio-system",
+  "version": "1.0.0",
+  "description": "A language learning system powered by AI agents. Practice through voice and text conversations with real-time feedback tailored to your level and goals.",
+  "main": "electron/main.mjs",
+  "scripts": {
+    "start": "electron .",
+    "server": "if [ -f .env ]; then node --env-file=.env server.ts; else node server.ts; fi",
+    "test": "node --test test/*.test.ts",
+    "test:integration": "RUN_OPENAI_INTEGRATION_TESTS=1 sh -c 'if [ -f .env ]; then node --env-file=.env --test test/integration/*.test.ts; else node --test test/integration/*.test.ts; fi'",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "lesson": "sh -c 'if [ -f .env ]; then node --env-file=.env agent-lesson.ts \"$@\"; else node agent-lesson.ts \"$@\"; fi' sh",
+    "exercises": "sh -c 'if [ -f .env ]; then node --env-file=.env agent-exercises.ts \"$@\"; else node agent-exercises.ts \"$@\"; fi' sh",
+    "cronjob": "if [ -f .env ]; then node --env-file=.env cronjob.ts; else node cronjob.ts; fi"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "engines": {
+    "node": ">=24.7.0",
+    "npm": ">=11.5.1"
+  },
+  "type": "module",
+  "dependencies": {
+    "@openai/agents": "^0.11.8",
+    "cookie": "^0.7.2",
+    "cookie-parser": "^1.4.7",
+    "csrf": "^3.1.0",
+    "express": "^5.2.1",
+    "marked": "^18.0.5",
+    "multer": "^2.1.1",
+    "node-cron": "^4.2.1",
+    "nodemailer": "^9.0.1",
+    "ws": "^8.21.0",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@stylistic/eslint-plugin": "^4.4.1",
+    "@types/cookie": "^0.6.0",
+    "@types/cookie-parser": "^1.4.10",
+    "@types/express": "^5.0.6",
+    "@types/multer": "^2.1.0",
+    "@types/node": "^25.9.2",
+    "@types/nodemailer": "^7.0.4",
+    "@types/ws": "^8.18.1",
+    "@typescript-eslint/parser": "^8.62.0",
+    "electron": "^42.4.1",
+    "eslint": "^9.39.2"
+  }
+}

@@ -1,0 +1,71 @@
+import { tool } from '@openai/agents';
+import type { RunItem } from '@openai/agents';
+import { z } from 'zod';
+import { formatCurrentDate } from '../../lib/study-plan-context.ts';
+import { markStudyPlanItems } from '../../lib/study-plan-mark.ts';
+
+export const MARK_STUDY_PLAN_ITEMS_TOOL_NAME = 'mark_study_plan_items';
+
+/**
+ * Tool that writes to `study-plan.md`, turning `- [ ]` into `- [x]` for today's
+ * matching plan lines. Used by `agent-lesson.ts` (theory items) and
+ * `agent-exercises.ts` (exercise/practice items).
+ *
+ * @see {@link https://openai.github.io/openai-agents-js/guides/tools/ | Agents SDK — tools}
+ * @see ../../lib/study-plan-mark.ts — file update logic
+ */
+export const markStudyPlanItemsTool = tool({
+  name: MARK_STUDY_PLAN_ITEMS_TOOL_NAME,
+  description:
+    'Mark today\'s checkboxes in study-plan.md as complete for the given plan items.',
+  parameters: z.object({
+    itemTexts: z
+      .array(z.string())
+      .min(1)
+      .describe(
+        'Substrings that identify each plan line to mark, e.g. ["Pronombres personales"]',
+      ),
+    planDateLabel: z
+      .string()
+      .optional()
+      .describe(
+        'Plan day header label, e.g. "29 de junio (Lunes)". Defaults to today.',
+      ),
+  }),
+  async execute({ itemTexts, planDateLabel }) {
+    const today = formatCurrentDate();
+    const dateLabel = planDateLabel?.trim() || today.label;
+    const marked = markStudyPlanItems(itemTexts, dateLabel);
+
+    return JSON.stringify({ marked, date: dateLabel });
+  },
+});
+
+function getToolCallName(item: RunItem): string | undefined {
+  if (item.type !== 'tool_call_item') return undefined;
+
+  const raw = item.rawItem;
+  if (raw && 'name' in raw && typeof raw.name === 'string') return raw.name;
+
+  return undefined;
+}
+
+/** Logs a warning when the lesson agent did not call mark_study_plan_items (optional for some plan days). */
+export function warnIfMarkStudyPlanToolMissing(result: { newItems: RunItem[] }): void {
+  const called = result.newItems.some(
+    (item) => getToolCallName(item) === MARK_STUDY_PLAN_ITEMS_TOOL_NAME,
+  );
+
+  if (!called)
+    console.warn(`[gio-system] Warning: ${MARK_STUDY_PLAN_ITEMS_TOOL_NAME} was not called.`);
+}
+
+/** Ensures the agent called {@link markStudyPlanItemsTool} before finishing. */
+export function assertMarkStudyPlanToolUsed(result: { newItems: RunItem[] }): void {
+  const called = result.newItems.some(
+    (item) => getToolCallName(item) === MARK_STUDY_PLAN_ITEMS_TOOL_NAME,
+  );
+
+  if (!called)
+    throw new Error(`Agent did not call required tool: ${MARK_STUDY_PLAN_ITEMS_TOOL_NAME}`);
+}

@@ -1,0 +1,16 @@
+node_modules
+.env
+agent-context.md
+dictionary.md
+plugins/
+.cursor/
+temp-uploads/
+
+# macOS
+.DS_Store
+**/.DS_Store
+
+study-plan.md
+lessons/
+exercises/
+interests.md
