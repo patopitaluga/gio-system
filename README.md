@@ -186,7 +186,8 @@ Every user message goes through a single orchestrator (`lib/orchestrator.ts`) be
 ```mermaid
 ---
 config:
-  look: handDrawn
+  flowchart:
+    curve: linear
 ---
 flowchart TD
   User([User asks])
