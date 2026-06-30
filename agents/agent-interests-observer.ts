@@ -3,17 +3,17 @@
  * identification after lessons, exercises, or chat. No CLI entry.
  *
  * **Exports**:
- * - `askLlmToIdentifyInterests` — **interests-observer-agent**. `agent-general-conversation.ts`, `agent-lessons.ts`, `agent-exercises.ts`, `agent-vocabulary.ts`.
+ * - `askLlmToIdentifyInterests` — **interests-observer-agent**. `agents/agent-general-conversation.ts`, `agents/agent-lessons.ts`, `agents/agent-exercises.ts`, `agents/agent-vocabulary.ts`.
  */
 import { Agent } from '@openai/agents';
-import { loadStudentContext } from './lib/student-context.ts';
-import { askAgentAndLog } from './lib/ask-agent.ts';
-import { formatCurrentDate } from './lib/study-plan-context.ts';
-import { loadInterestsFile, findRestatedSavedInterest, logInterestAlreadySaved, INTERESTS_PATH } from './lib/save-interests.ts';
+import { loadStudentContext } from '../lib/student-context.ts';
+import { askAgentAndLog } from '../lib/ask-agent.ts';
+import { formatCurrentDate } from '../lib/study-plan-context.ts';
+import { loadInterestsFile, findRestatedSavedInterest, logInterestAlreadySaved, INTERESTS_PATH } from '../lib/save-interests.ts';
 import {
   SAVE_INTEREST_TOOL_NAME,
   saveInterestTool,
-} from './tools/interest-tools/save-interest.ts';
+} from '../tools/interests-tools/save-interest.ts';
 
 /** Used in `askLlmToIdentifyInterests`. */
 function buildSystemInstructions(
@@ -75,7 +75,7 @@ function buildTurnInput(
 /**
  * **interests-observer-agent** — detect and save language-learning interests from a turn.
  *
- * Imported in `agent-general-conversation.ts`, `agent-lessons.ts`, `agent-exercises.ts`, and `agent-vocabulary.ts`.
+ * Imported in `agents/agent-general-conversation.ts`, `agents/agent-lessons.ts`, `agents/agent-exercises.ts`, and `agents/agent-vocabulary.ts`.
  */
 export async function askLlmToIdentifyInterests(
   userPrompt: string,

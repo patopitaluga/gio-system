@@ -57,14 +57,14 @@ function createRetrieveExistingStudyOutputTool(
   });
 }
 
-/** Imported in `agent-lessons.ts`. */
+/** Imported in `agents/agent-lessons.ts`. */
 export const retrieveExistingLessonTool = createRetrieveExistingStudyOutputTool(
   'lessons',
   StudyOutputToolName.RetrieveLesson,
   'lesson',
 );
 
-/** Imported in `agent-exercises.ts`. */
+/** Imported in `agents/agent-exercises.ts`. */
 export const retrieveExistingExercisesTool = createRetrieveExistingStudyOutputTool(
   'exercises',
   StudyOutputToolName.RetrieveExercises,

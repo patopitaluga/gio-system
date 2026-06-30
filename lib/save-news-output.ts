@@ -15,7 +15,7 @@ function resolveNewsPath(dateIso: string, root = projectRoot): string {
   return path.join(root, NEWS_DIR, `${dateIso}.md`);
 }
 
-/** Imported in `agent-news.ts` and `cronjob.ts`. */
+/** Imported in `agents/agent-news.ts` and `cronjob.ts`. */
 export function saveNewsOutput(
   markdown: string,
   dateIso = formatCurrentDate().iso,
@@ -31,7 +31,7 @@ export function saveNewsOutput(
   return filePath;
 }
 
-/** Imported in `agent-news.ts` and `cronjob.ts`. Used in `test/save-news-output.test.ts`. */
+/** Imported in `agents/agent-news.ts` and `cronjob.ts`. Used in `test/save-news-output.test.ts`. */
 export function readPreviousNews(
   dateIso: string,
   root = projectRoot,
@@ -47,7 +47,7 @@ export function readPreviousNews(
   };
 }
 
-/** Imported in `agent-news.ts` and `cronjob.ts`. */
+/** Imported in `agents/agent-news.ts` and `cronjob.ts`. */
 export function logNewsOutputStatus(
   source: 'archive' | 'generated',
   savedPath: string,

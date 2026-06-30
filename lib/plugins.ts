@@ -6,7 +6,7 @@ import { projectRoot } from './workspace.ts';
 
 const DEFAULT_PLUGINS_DIR = 'plugins';
 
-/** Imported in `conversation/tools.ts` — passed to `loadPluginTools`. */
+/** Imported in `conversation/plugin-tools.ts` — passed to `loadPluginTools`. */
 export function resolvePluginsDir(): string {
   const configured = process.env.PLUGINS_DIR?.trim();
 
@@ -17,7 +17,7 @@ export function resolvePluginsDir(): string {
     : path.resolve(projectRoot, configured);
 }
 
-/** Imported in `conversation/tools.ts` — merged with built-in conversation tools in `loadAgentTools`. */
+/** Imported in `conversation/plugin-tools.ts` — merged with built-in conversation tools in `loadAgentTools`. */
 export async function loadPluginTools(pluginsDir: string): Promise<AgentTool[]> {
   if (!existsSync(pluginsDir)) return [];
 

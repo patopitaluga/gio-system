@@ -1,34 +1,49 @@
 /**
  * **news-agent** — picks one newspaper article and returns graded reading in the target language.
- * Cron entry via `cronjob.ts`; CLI via `npm run news`.
+ * Cron entry via `cronjob.ts`; CLI via `npm run news`; app via `askLlmToCurateNewsForTurn`.
  *
  * **Exports**:
  * - `askLlmToCurateNews` — **news-agent**. `cronjob.ts`, CLI (`npm run news`).
+ * - `askLlmToCurateNewsForTurn` — app / `npm run gio`. `agents/agent-reception-orchestrator.ts`, `conversation/session-manager.ts`.
  * - `sendNewsByEmail` — imported in `cronjob.ts`.
  */
 import { Agent, webSearchTool } from '@openai/agents';
 import { fileURLToPath } from 'url';
-import { askAgentAndLog } from './lib/ask-agent.ts';
-import { loadStudentContext } from './lib/student-context.ts';
-import { loadInterestsFile } from './lib/save-interests.ts';
-import { formatCurrentDate } from './lib/study-plan-context.ts';
-import { markdownToHtml } from './lib/markdown-to-html.ts';
+import { askAgentAndLog } from '../lib/ask-agent.ts';
+import { loadStudentContext } from '../lib/student-context.ts';
+import { loadInterestsFile } from '../lib/save-interests.ts';
+import { formatCurrentDate } from '../lib/study-plan-context.ts';
+import { buildNewsEmailContent } from '../lib/build-news-email.ts';
+import type { AgentLoopResult } from '../lib/resolve-agent-output.ts';
 import {
   logNewsOutputStatus,
   readPreviousNews,
   saveNewsOutput,
-} from './lib/save-news-output.ts';
+} from '../lib/save-news-output.ts';
 import {
   resolveNewsNewspaperDomain,
   resolveNewsNewspaperUrl,
-} from './lib/fetch-web-page.ts';
+} from '../lib/fetch-web-page.ts';
 import {
   isEmailConfigured,
   sendEmail,
   type SendEmailResult,
-} from './tools/communication-tools/send-email.ts';
+} from '../tools/communication-tools/send-email.ts';
 
 const WEB_SEARCH_TOOL_NAME = 'web_search';
+
+const NEWS_EMAIL_REQUEST_PATTERN = /\b(?:send|email|mail|env[ií]a(?:me|r)?|m[aá]ndame|correo)\b/i;
+
+/** Used in `askLlmToCurateNewsForTurn`. */
+function userWantsNewsEmailed(userPrompt: string): boolean {
+  return NEWS_EMAIL_REQUEST_PATTERN.test(userPrompt);
+}
+
+/** Options for `askLlmToCurateNews`. */
+export type CurateNewsOptions = {
+  /** When false, skip writing `news/YYYY-MM-DD.md` (on-demand app turns). Default true. */
+  saveDailyFile?: boolean;
+};
 
 /** Used in `createNewsAgent`. */
 function buildNewsInstructions(
@@ -112,10 +127,30 @@ In una immagine si vede una "culla di stelle" nella Via Lattea, con gas e polver
 
 {2–3 paragraphs of simplified article prose in the target language — no bullet lists, no metadata fields, no one-sentence-per-line layout}
 
+------
+
+## {Vocabulary heading in the student's language — e.g. "Vocabulario" for Spanish speakers}
+
+{4–8 bullet lines for words from the article that may be new at the student's level — especially topic-specific terms (science, sport, culture, etc.). Skip words they likely already know at their level.}
+
+- **{word in target language}** — {short plain-language explanation in the student's language}
+
+Example:
+\`\`\`
+------
+
+## Vocabulario
+
+- **telescopio** — instrumento para observar objetos muy lejanos en el espacio, como estrellas y galaxias
+- **galassia** — grupo enorme de estrellas en el universo
+- **materia oscura** — parte del universo que los científicos no pueden ver directamente, pero saben que existe
+\`\`\`
+
 ## Rules
 
 - One article only. One reading passage only.
 - Body text must be in the target language, simplified to the student's level.
+- Vocabulary explanations must be in the student's language (from context above).
 - Only use an article you found via ${WEB_SEARCH_TOOL_NAME} on ${newspaperDomain}.
 - Deliver the full output in your final reply. Do not ask follow-up questions.`;
 }
@@ -151,8 +186,14 @@ function createNewsAgent(
  * **news-agent** — search the configured newspaper and build one graded reading in the target language.
  *
  * Imported in `cronjob.ts` and CLI (`npm run news`).
+ *
+ * @param userPrompt — optional topic for CLI (e.g. "World Cup"). Cron omits this and uses interests.md.
+ * @param options — `saveDailyFile: false` for on-demand app turns so cron's daily file is untouched.
  */
-export async function askLlmToCurateNews(): Promise<{
+export async function askLlmToCurateNews(
+  userPrompt?: string,
+  options: CurateNewsOptions = {},
+): Promise<{
   markdown: string;
   savedPath: string;
   source: 'generated';
@@ -169,22 +210,55 @@ export async function askLlmToCurateNews(): Promise<{
     studentContext,
     today.label,
   );
-  const prompt = [
-    `Find one article from ${newspaperUrl} (${newspaperDomain}) for today.`,
-    'Use web_search; match interests when possible.',
-    'Output one simplified news article in the target language: prose paragraphs, not one sentence per line.',
-  ].join(' ');
+  const topicRequest = userPrompt?.trim();
+  const prompt = topicRequest
+    ? [
+        `Find one article from ${newspaperUrl} (${newspaperDomain}) about: ${topicRequest}`,
+        'Use web_search on that domain. Prefer a recent uplifting story that fits the topic.',
+        'Output one simplified news article in the target language: prose paragraphs, not one sentence per line.',
+      ].join(' ')
+    : [
+        `Find one article from ${newspaperUrl} (${newspaperDomain}) for today.`,
+        'Use web_search; match interests when possible.',
+        'Output one simplified news article in the target language: prose paragraphs, not one sentence per line.',
+      ].join(' ');
 
   const result = await askAgentAndLog(agent, prompt, 'news-agent');
   const markdown = result.finalOutput?.trim();
 
   if (!markdown) throw new Error('news-agent did not produce a reading');
 
-  const savedPath = saveNewsOutput(markdown, today.iso);
+  const saveDailyFile = options.saveDailyFile !== false;
+  const savedPath = saveDailyFile ? saveNewsOutput(markdown, today.iso) : '';
 
   return {
     markdown,
     savedPath,
+    source: 'generated',
+  };
+}
+
+/**
+ * **news-agent** for app / `npm run gio` — on-demand reading; emails only when the user asks to send/mail.
+ *
+ * Imported in `agents/agent-reception-orchestrator.ts` and `conversation/session-manager.ts`.
+ */
+export async function askLlmToCurateNewsForTurn(userPrompt: string): Promise<AgentLoopResult> {
+  const prompt = userPrompt.trim();
+  if (!prompt) throw new Error('News prompt is required');
+
+  const { markdown } = await askLlmToCurateNews(prompt, { saveDailyFile: false });
+
+  let emailed = false;
+  if (userWantsNewsEmailed(prompt) && isEmailConfigured()) {
+    await sendNewsByEmail(markdown);
+    emailed = true;
+  }
+
+  return {
+    markdown,
+    savedPath: '',
+    emailed,
     source: 'generated',
   };
 }
@@ -194,18 +268,26 @@ export async function sendNewsByEmail(newsMarkdown: string): Promise<SendEmailRe
   if (!isEmailConfigured()) throw new Error('SMTP is not configured. Set SMTP_HOST, SMTP_USER, and SMTP_PASS in .env');
 
   const today = formatCurrentDate();
+  const { subject, text, html } = await buildNewsEmailContent(newsMarkdown, today.label);
 
   return sendEmail({
-    subject: `Lettura del giorno — ${today.label}`,
-    text: newsMarkdown,
-    html: await markdownToHtml(newsMarkdown),
+    subject,
+    text,
+    html,
   });
+}
+
+/** Used in CLI entry when this file is the main module. */
+function readCliTopic(): string {
+  return process.argv.slice(2).join(' ').trim();
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
   if (!process.env.OPENAI_API_KEY?.trim()) throw new Error('OPENAI_API_KEY is not set');
 
-  askLlmToCurateNews()
+  const topic = readCliTopic();
+
+  askLlmToCurateNews(topic || undefined)
     .then(async ({ markdown, savedPath, source }) => {
       logNewsOutputStatus(source, savedPath);
       console.log(markdown);

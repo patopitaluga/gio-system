@@ -18,7 +18,7 @@ const STATUS_LABELS: Record<
   },
 };
 
-/** Imported in `agent-lessons.ts`, `agent-exercises.ts`, and `cronjob.ts`. Used in `test/study-output.test.ts`. */
+/** Imported in `agents/agent-lessons.ts`, `agents/agent-exercises.ts`, and `cronjob.ts`. Used in `test/study-output.test.ts`. */
 export function logStudyOutputStatus(
   kind: StudyOutputKind,
   source: StudyOutputSource,

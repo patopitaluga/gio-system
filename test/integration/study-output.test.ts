@@ -7,7 +7,7 @@ import assert from 'node:assert/strict';
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'fs';
 import path from 'path';
 import { projectRoot } from '../../lib/workspace.ts';
-import { askLlmToIdentifyLessonIntent } from '../../agent-lessons.ts';
+import { askLlmToIdentifyLessonIntent } from '../../agents/agent-lessons.ts';
 
 if (!process.env.OPENAI_API_KEY?.trim()) throw new Error('OPENAI_API_KEY is not set');
 

@@ -27,7 +27,7 @@ export type SaveShortcomingResult = {
   duplicate: boolean;
 };
 
-/** Imported in `agent-shortcomings.ts`. Default input for `saveShortcoming`. */
+/** Imported in `agents/agent-shortcomings-observer.ts`. Default input for `saveShortcoming`. */
 export function loadShortcomingsFile(shortcomingsPath = SHORTCOMINGS_PATH): string {
   if (!existsSync(shortcomingsPath)) return '';
 
@@ -63,7 +63,7 @@ function ensureShortcomingsFile(content: string): string {
   return `${SHORTCOMINGS_HEADER}${trimmed}\n`;
 }
 
-/** Imported in `tools/shortcoming-tools/save-shortcoming.ts`. Used in `test/shortcomings.test.ts`. */
+/** Imported in `tools/shortcomings-tools/save-shortcoming.ts`. Used in `test/shortcomings.test.ts`. */
 export function saveShortcoming(
   kind: LearningMemoryKind,
   topic: string,
@@ -103,7 +103,7 @@ export function saveShortcoming(
   };
 }
 
-/** Imported in `tools/shortcoming-tools/save-shortcoming.ts` and `agent-shortcomings.ts`. */
+/** Imported in `tools/shortcomings-tools/save-shortcoming.ts` and `agents/agent-shortcomings-observer.ts`. */
 export function logShortcomingSaved(
   kind: LearningMemoryKind,
   topic: string,
@@ -116,7 +116,7 @@ export function logShortcomingSaved(
   );
 }
 
-/** Imported in `tools/shortcoming-tools/save-shortcoming.ts` and `agent-shortcomings.ts`. */
+/** Imported in `tools/shortcomings-tools/save-shortcoming.ts` and `agents/agent-shortcomings-observer.ts`. */
 export function logShortcomingAlreadySaved(
   kind: LearningMemoryKind,
   topic: string,

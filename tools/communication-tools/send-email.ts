@@ -4,7 +4,7 @@ import { z } from 'zod';
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-/** Used in `agent-lessons.ts` and `agent-exercises.ts`. */
+/** Used in `agents/agent-lessons.ts` and `agents/agent-exercises.ts`. */
 export const SEND_EMAIL_TOOL_NAME = 'send_email';
 
 const sendEmailParameters = z.object({
@@ -19,7 +19,7 @@ const sendEmailParameters = z.object({
   html: z.string().optional().describe('Optional HTML email body'),
 });
 
-/** Imported in `agent-lessons.ts` and `agent-exercises.ts`. */
+/** Imported in `agents/agent-lessons.ts` and `agents/agent-exercises.ts`. */
 export function isEmailConfigured(): boolean {
   return Boolean(
     process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS,
@@ -74,7 +74,7 @@ export type SendEmailResult = {
   to: string;
 };
 
-/** Imported in `agent-lessons.ts` and `agent-exercises.ts` (`sendLessonByEmail` / `sendExercisesByEmail`). */
+/** Imported in `agents/agent-lessons.ts` and `agents/agent-exercises.ts` (`sendLessonByEmail` / `sendExercisesByEmail`). */
 export async function sendEmail(input: SendEmailInput): Promise<SendEmailResult> {
   if (!isEmailConfigured()) throw new Error('SMTP is not configured. Set SMTP_HOST, SMTP_USER, and SMTP_PASS in .env');
 
@@ -97,7 +97,7 @@ async function executeSendEmail(input: z.infer<typeof sendEmailParameters>): Pro
   return JSON.stringify(result);
 }
 
-/** Imported in `agent-lessons.ts` and `agent-exercises.ts`. */
+/** Imported in `agents/agent-lessons.ts` and `agents/agent-exercises.ts`. */
 export function createSendEmailAgentTool() {
   return agentTool({
     name: SEND_EMAIL_TOOL_NAME,

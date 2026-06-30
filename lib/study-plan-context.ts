@@ -14,7 +14,7 @@ const WEEKDAYS_ES = [
   'Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado',
 ];
 
-/** Used in `agent-lessons.ts`, `agent-exercises.ts`, `agent-reception-orchestrator.ts`, and `agent-interests.ts`. */
+/** Used in `agents/agent-lessons.ts`, `agents/agent-exercises.ts`, `agents/agent-reception-orchestrator.ts`, and `agents/agent-interests-observer.ts`. */
 export type StudyPlanDate = {
   label: string;
   iso: string;
@@ -30,7 +30,7 @@ export function formatLocalDateIso(date = new Date()): string {
   return `${year}-${month}-${day}`;
 }
 
-/** Imported in `agent-lessons.ts`, `agent-exercises.ts`, `agent-reception-orchestrator.ts`, `agent-interests.ts`, `cronjob.ts`, `lib/save-study-output.ts`, `lib/save-interests.ts`, and `tools/study-plan-tools/mark-study-plan-items.ts`. */
+/** Imported in `agents/agent-lessons.ts`, `agents/agent-exercises.ts`, `agents/agent-reception-orchestrator.ts`, `agents/agent-interests-observer.ts`, `cronjob.ts`, `lib/save-study-output.ts`, `lib/save-interests.ts`, and `tools/study-plan-tools/mark-study-plan-items.ts`. */
 export function formatCurrentDate(): StudyPlanDate {
   const now = new Date();
   const day = now.getDate();
@@ -49,7 +49,7 @@ export function formatCurrentDate(): StudyPlanDate {
   };
 }
 
-/** Imported in `agent-lessons.ts` and `agent-exercises.ts`. */
+/** Imported in `agents/agent-lessons.ts` and `agents/agent-exercises.ts`. */
 export function loadStudyPlan(): string {
   return readFileSync(STUDY_PLAN_PATH, 'utf8').trim();
 }

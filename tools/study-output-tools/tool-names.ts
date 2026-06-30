@@ -1,4 +1,4 @@
-/** OpenAI tool name strings for lesson/exercises retrieve and generate. Any agent may load these tools. Used in `agent-lessons.ts`, `agent-exercises.ts`, `lib/agent-run-trace.ts`, and tests. */
+/** OpenAI tool name strings for lesson/exercises retrieve and generate. Any agent may load these tools. Used in `agents/agent-lessons.ts`, `agents/agent-exercises.ts`, `lib/agent-run-trace.ts`, and tests. */
 export const StudyOutputToolName = {
   RetrieveLesson: 'retrieve_existing_lesson',
   RetrieveExercises: 'retrieve_existing_exercises',

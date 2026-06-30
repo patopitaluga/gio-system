@@ -117,7 +117,7 @@ When SMTP is configured in `.env`, the system can send lessons, exercises, and t
 
 Set `NEWS_NEWSPAPER_URL` to the homepage of a newspaper to enable **news-agent** in the cron job (9:00 local, same as lessons and exercises). It reads `interests.md` and `student-context.md`, uses OpenAI **web search** (scoped to that site's domain) to find **one** uplifting article, **rewrites** it as graded reading in the **target language** (not a native-language summary), saves it under `news/YYYY-MM-DD.md`, and emails it.
 
-Manual run: `npm run news`
+Manual run: `npm run news` — or pass a topic: `npm run news -- Find me an article about the World Cup`
 
 See [Environment variables](#environment-variables) for SMTP and news settings.
 
@@ -210,7 +210,7 @@ npm run lint:fix
 
 ## How routing works
 
-Every user message in the **app** goes through **reception-orchestrator-agent** (`agent-reception-orchestrator.ts`) first — it triages to lessons, exercises, or **general-conversation-agent**:
+Every user message in the **app** goes through **reception-orchestrator-agent** (`agents/agent-reception-orchestrator.ts`) first — it triages to lessons, exercises, vocabulary, news, or **general-conversation-agent**:
 
 ```mermaid
 ---
@@ -223,6 +223,8 @@ flowchart TD
   Orch[reception-orchestrator-agent]
   Lesson[identify-lesson-intent-agent]
   Exercises[identify-exercises-intent-agent]
+  Vocabulary[vocabulary-agent]
+  News[news-agent]
   Conversation[general-conversation-agent]
   Interests[interests-observer-agent]
   Shortcomings[shortcomings-observer-agent]
@@ -230,6 +232,8 @@ flowchart TD
   User --> Orch
   Orch -->|lesson| Lesson
   Orch -->|exercises| Exercises
+  Orch -->|vocabulary| Vocabulary
+  Orch -->|news| News
   Orch -->|general| Conversation
   Lesson --> Interests
   Exercises --> Interests
@@ -243,9 +247,11 @@ flowchart TD
 
 1. **identify-lesson-intent-agent** — figure out what the user wants regarding lessons, then retrieve or generate.
 2. **identify-exercises-intent-agent** — figure out what the user wants regarding exercises, then retrieve or generate.
-3. **General** — open conversation, language Q&A, email requests, etc. Handled by **general-conversation-agent**.
+3. **vocabulary-agent** — vocabulary list with IPA, example sentences in context, and pronunciation audio.
+4. **news-agent** — one curated newspaper article as graded reading (`NEWS_NEWSPAPER_URL` required). On-demand app turns do not overwrite the cron's daily `news/` file; emails when the user asks to send/mail and SMTP is configured.
+5. **General** — open conversation, language Q&A, etc. Handled by **general-conversation-agent**.
 
-**reception-orchestrator-agent** is a lightweight routing agent (no tools): one SDK call returns `general`, `lesson`, or `exercises`. Lesson and exercises paths then run their dedicated agents.
+**reception-orchestrator-agent** is a lightweight routing agent (no tools): one SDK call returns `general`, `lesson`, `exercises`, `vocabulary`, or `news`. Lesson and exercises paths then run their dedicated agents.
 
 **CLI** (`npm run gio`) runs reception-orchestrator-agent first, then the routed agent. `npm run lesson` / `npm run exercises` and the **cron job** skip the orchestrator — intent is fixed by which command or schedule runs.
 
@@ -321,6 +327,53 @@ flowchart TD
 
 
 
+### News — who calls which agent
+
+**CLI** (`npm run news`) always runs **news-agent**, saves to `news/`, then calls `sendNewsByEmail` (when SMTP is configured). It does **not** check whether today's file already exists. Pass a topic after `--` to search for something specific; with no args it uses `interests.md`.
+
+**Cron** (when `NEWS_NEWSPAPER_URL` is set) checks disk first: if today's file exists it emails that saved reading; otherwise it runs **news-agent**, saves, then emails — same `sendNewsByEmail` in both cases.
+
+#### How the agent sees `student-context.md` and `interests.md`
+
+**Not a tool.** news-agent's only tool is hosted `web_search`. There is no file-read tool.
+
+Before each run, `askLlmToCurateNews` reads the files in Node (`loadStudentContext()`, `loadInterestsFile()`), then **splices the full markdown into the agent's `instructions` string** via `buildNewsInstructions()`. The OpenAI Agents SDK sends those **agent instructions as the system prompt** for the run. The separate user message is only the short task line (`Find one article from …`).
+
+So the model sees student context and interests **in the agent instructions (sent as system prompt)**, not as a pre-loaded assistant message and not by calling a tool at runtime.
+
+```mermaid
+flowchart TD
+  CLI["CLI (npm run news)"] --> GenFn["askLlmToCurateNews"]
+
+  Cron["Cron"] --> DiskCheck{Today's file exists?}
+  DiskCheck -->|yes| Email["sendNewsByEmail"]
+  DiskCheck -->|no| GenFn
+  GenFn --> Email
+
+  subgraph instructions ["Agent instructions sent as system prompt"]
+    StudentCtx[(student-context.md)] --> LoadCtx["loadStudentContext()"]
+    Interests[(interests.md)] --> LoadInt["loadInterestsFile()"]
+    Env["NEWS_NEWSPAPER_URL (.env)"] --> ResolveUrl["resolveNewsNewspaperUrl()"]
+    LoadCtx --> Build["buildNewsInstructions()"]
+    LoadInt --> Build
+    ResolveUrl --> Build
+    Build --> SysPrompt["Agent.instructions"]
+  end
+
+  GenFn --> Build
+  GenFn --> CreateAgent["createNewsAgent()"]
+  SysPrompt --> CreateAgent
+  CreateAgent --> NewsAgent["news-agent"]
+  TaskPrompt["User message: short task prompt"] --> NewsAgent
+
+  NewsAgent --> WebSearch["web_search (hosted — only tool)"]
+  NewsAgent --> Output["Final markdown reading"]
+  Output --> Disk[(news/ on disk)]
+  GenFn --> Disk
+```
+
+
+
 
 | Agent                               | When it runs                                                                  | Tools                                                      |
 | ----------------------------------- | ----------------------------------------------------------------------------- | ---------------------------------------------------------- |
@@ -331,7 +384,7 @@ flowchart TD
 | **generate-exercises-agent**        | When `generate_new_exercises` runs; cron if today's exercises file is missing | - `mark_study_plan_items` - `send_email`*                  |
 | **interests-observer-agent**        | Background after each turn                                                    | - `save_interest`                                          |
 | **shortcomings-observer-agent**     | Background after each turn                                                    | - `save_shortcoming`                                       |
-| **news-agent**                      | Cron (when `NEWS_NEWSPAPER_URL` set), CLI (`npm run news`)                    | - `web_search` (hosted)                                    |
+| **news-agent**                      | Cron (when `NEWS_NEWSPAPER_URL` set), CLI (`npm run news`), app (`news` route) | - `web_search` (hosted)                                    |
 | **general-conversation-agent**      | App: general route (voice, text, images)                                      | - Plugin tools from `plugins/`                             |
 
 
@@ -365,12 +418,15 @@ flowchart TD
 
 ```
 gio-system/
-├── agent-reception-orchestrator.ts # reception-orchestrator-agent + route types (`OrchestratorRoute`)
-├── agent-lessons.ts         # identify-lesson-intent-agent, generate-lesson-agent, CLI entry
-├── agent-exercises.ts       # identify-exercises-intent-agent, generate-exercises-agent, CLI entry
-├── agent-interests.ts       # interests-observer-agent (background after each turn)
-├── agent-shortcomings.ts    # shortcomings-observer-agent (background after each turn)
-├── agent-news.ts            # news-agent (cron + npm run news)
+├── agents/
+│   ├── agent-reception-orchestrator.ts # reception-orchestrator-agent + RelevantAgent
+│   ├── agent-lessons.ts         # identify-lesson-intent-agent, generate-lesson-agent, CLI entry
+│   ├── agent-exercises.ts       # identify-exercises-intent-agent, generate-exercises-agent, CLI entry
+│   ├── agent-general-conversation.ts # general-conversation-agent (Realtime + CLI)
+│   ├── agent-vocabulary.ts      # vocabulary-agent
+│   ├── agent-interests-observer.ts       # interests-observer-agent (background after each turn)
+│   ├── agent-shortcomings-observer.ts    # shortcomings-observer-agent (background after each turn)
+│   └── agent-news.ts            # news-agent (cron + npm run news + app route)
 ├── student-context.example.md # Template for student-context.md
 ├── disambiguation.example.md # Template for disambiguation.md
 ├── cronjob.ts               # Lesson/exercises email scheduler (9:00 local)
@@ -406,8 +462,8 @@ gio-system/
 ├── public/                  # Static assets (CSS, speech preview script)
 ├── tools/
 │   ├── communication-tools/ # send_email
-│   ├── interest-tools/      # save_interest (used by interests-observer-agent)
-│   ├── shortcoming-tools/   # save_shortcoming (used by shortcomings-observer-agent)
+│   ├── interests-tools/      # save_interest (used by interests-observer-agent)
+│   ├── shortcomings-tools/   # save_shortcoming (used by shortcomings-observer-agent)
 │   ├── study-output-tools/  # retrieve / generate lesson & exercises
 │   └── study-plan-tools/    # mark_study_plan_items
 ├── plugins.example/         # Sample plugin (copy into gitignored plugins/)

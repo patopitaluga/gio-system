@@ -8,8 +8,8 @@ import { logUserPrompt } from '../utils/turn-log.ts';
  * Logs `input` via `logUserPrompt`, wraps `runner.run` with `createAgentRunTrace`, then
  * returns the SDK `RunResult`.
  *
- * Imported in `agent-lessons.ts`, `agent-exercises.ts`, `agent-interests.ts`,
- * `agent-shortcomings.ts`, `agent-news.ts`, and `agent-reception-orchestrator.ts`.
+ * Imported in `agents/agent-lessons.ts`, `agents/agent-exercises.ts`, `agents/agent-interests-observer.ts`,
+ * `agents/agent-shortcomings-observer.ts`, `agents/agent-news.ts`, and `agents/agent-reception-orchestrator.ts`.
  *
  * @param agent - Configured SDK agent to call.
  * @param input - Prompt or turn text passed to the agent.

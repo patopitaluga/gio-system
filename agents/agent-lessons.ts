@@ -11,37 +11,37 @@
  */
 import { Agent } from '@openai/agents';
 import type { RunItem } from '@openai/agents';
-import { askAgentAndLog } from './lib/ask-agent.ts';
+import { askAgentAndLog } from '../lib/ask-agent.ts';
 import { fileURLToPath } from 'url';
 import {
   formatCurrentDate,
   loadStudyPlan,
   type StudyPlanDate,
-} from './lib/study-plan-context.ts';
-import { markdownToHtml } from './lib/markdown-to-html.ts';
-import { saveStudyOutput } from './lib/save-study-output.ts';
-import { logStudyOutputStatus } from './lib/log-study-output-status.ts';
-import { NO_CAPTATION_FOLLOWUP_RULE } from './lib/prompt-rules.ts';
-import { resolveAgentOutput, type AgentLoopResult } from './lib/resolve-agent-output.ts';
-import { listStudyOutputDates } from './lib/save-study-output.ts';
-import { askLlmToIdentifyInterests } from './agent-interests.ts';
-import { askLlmToIdentifyShortcomings } from './agent-shortcomings.ts';
-import { logTurnError } from './utils/turn-log.ts';
-import { createGenerateNewLessonTool } from './tools/study-output-tools/generate-study-output-tool.ts';
-import { retrieveExistingLessonTool } from './tools/study-output-tools/retrieve-existing-study-output.ts';
-import { StudyOutputToolName } from './tools/study-output-tools/tool-names.ts';
+} from '../lib/study-plan-context.ts';
+import { markdownToHtml } from '../lib/markdown-to-html.ts';
+import { saveStudyOutput } from '../lib/save-study-output.ts';
+import { logStudyOutputStatus } from '../lib/log-study-output-status.ts';
+import { NO_CAPTATION_FOLLOWUP_RULE } from '../lib/prompt-rules.ts';
+import { resolveAgentOutput, type AgentLoopResult } from '../lib/resolve-agent-output.ts';
+import { listStudyOutputDates } from '../lib/save-study-output.ts';
+import { askLlmToIdentifyInterests } from './agent-interests-observer.ts';
+import { askLlmToIdentifyShortcomings } from './agent-shortcomings-observer.ts';
+import { logTurnError } from '../utils/turn-log.ts';
+import { createGenerateNewLessonTool } from '../tools/study-output-tools/generate-study-output-tool.ts';
+import { retrieveExistingLessonTool } from '../tools/study-output-tools/retrieve-existing-study-output.ts';
+import { StudyOutputToolName } from '../tools/study-output-tools/tool-names.ts';
 import {
   createSendEmailAgentTool,
   isEmailConfigured,
   SEND_EMAIL_TOOL_NAME,
   sendEmail,
   type SendEmailResult,
-} from './tools/communication-tools/send-email.ts';
+} from '../tools/communication-tools/send-email.ts';
 import {
   warnIfMarkStudyPlanToolMissing,
   MARK_STUDY_PLAN_ITEMS_TOOL_NAME,
   markStudyPlanItemsTool,
-} from './tools/study-plan-tools/mark-study-plan-items.ts';
+} from '../tools/study-plan-tools/mark-study-plan-items.ts';
 
 const DEFAULT_LESSON_PROMPT = 'Generate the lesson for today.';
 
@@ -86,7 +86,7 @@ function createIdentifyLessonIntentAgent(today: StudyPlanDate, lessonDates: stri
  * **identify-lesson-intent-agent** — retrieve saved file or call `generate_new_lesson`.
  *
  * Imported in `conversation/session-manager.ts`, CLI (`npm run lesson`), tests, and
- * `agent-reception-orchestrator.ts` (`npm run gio`).
+ * `agents/agent-reception-orchestrator.ts` (`npm run gio`).
  */
 export async function askLlmToIdentifyLessonIntent(userPrompt: string): Promise<AgentLoopResult> {
   const prompt = userPrompt.trim();

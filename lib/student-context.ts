@@ -5,9 +5,9 @@
  *
  * **Callers**:
  * - `conversation/instructions.ts` — Realtime session instructions (`buildAgentInstructions`)
- * - `agent-interests.ts` — interests-observer runs (`askLlmToIdentifyInterests`)
- * - `agent-shortcomings.ts` — shortcomings-observer runs (`askLlmToIdentifyShortcomings`)
- * - `agent-vocabulary.ts` — vocabulary-agent instructions (`askLlmToShowVocabulary`)
+ * - `agents/agent-interests-observer.ts` — interests-observer runs (`askLlmToIdentifyInterests`)
+ * - `agents/agent-shortcomings-observer.ts` — shortcomings-observer runs (`askLlmToIdentifyShortcomings`)
+ * - `agents/agent-vocabulary.ts` — vocabulary-agent instructions (`askLlmToShowVocabulary`)
  * - `conversation/index.ts` — warms cache at server startup (`createAgentService`)
  *
  * No field parsing: the whole markdown is passed to the LLM. See `student-context.example.md`.
@@ -35,7 +35,7 @@ export function resolveStudentContextPath(): string {
 /**
  * Returns student context markdown, cached until the file changes.
  *
- * Imported in `conversation/instructions.ts`, `agent-interests.ts`, and `agent-vocabulary.ts`.
+ * Imported in `conversation/instructions.ts`, `agents/agent-interests-observer.ts`, and `agents/agent-vocabulary.ts`.
  */
 export function loadStudentContext(): string {
   const contextPath = resolveStudentContextPath();

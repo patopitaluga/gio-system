@@ -23,7 +23,7 @@ export type SaveInterestResult = {
   duplicate: boolean;
 };
 
-/** Imported in `agent-interests.ts`. Default input for `saveInterest`. */
+/** Imported in `agents/agent-interests-observer.ts`. Default input for `saveInterest`. */
 export function loadInterestsFile(interestsPath = INTERESTS_PATH): string {
   if (!existsSync(interestsPath)) return '';
 
@@ -81,7 +81,7 @@ function segmentMatchesSavedTopic(segment: string, savedTopics: { label: string;
  * When the user only restates interest in topics already in `interests.md`, returns the
  * first matching saved label so callers can skip interests-observer-agent.
  *
- * Imported in `agent-interests.ts`. Used in `test/interests.test.ts`.
+ * Imported in `agents/agent-interests-observer.ts`. Used in `test/interests.test.ts`.
  */
 export function findRestatedSavedInterest(
   userPrompt: string,
@@ -114,7 +114,7 @@ function ensureInterestsFile(content: string): string {
   return `${INTERESTS_HEADER}${trimmed}\n`;
 }
 
-/** Imported in `tools/interest-tools/save-interest.ts`. Used in `test/interests.test.ts`. */
+/** Imported in `tools/interests-tools/save-interest.ts`. Used in `test/interests.test.ts`. */
 export function saveInterest(
   topic: string,
   note?: string,
@@ -150,14 +150,14 @@ export function saveInterest(
   };
 }
 
-/** Imported in `tools/interest-tools/save-interest.ts` and `agent-interests.ts`. */
+/** Imported in `tools/interests-tools/save-interest.ts` and `agents/agent-interests-observer.ts`. */
 export function logInterestSaved(topic: string, savedPath: string) {
   console.log(
     styleText('green', `💡 Interest identified, saving to ${savedPath}: ${topic}`),
   );
 }
 
-/** Imported in `tools/interest-tools/save-interest.ts` and `agent-interests.ts`. */
+/** Imported in `tools/interests-tools/save-interest.ts` and `agents/agent-interests-observer.ts`. */
 export function logInterestAlreadySaved(topic: string, savedPath: string) {
   console.log(
     styleText('dim', `💡 Interest already saved in ${savedPath}: ${topic}`),

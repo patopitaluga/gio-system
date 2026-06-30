@@ -13,7 +13,7 @@ function resolveCanonicalOutputPath(dir: string, dateIso: string): string {
 }
 
 /**
- * Imported in `agent-lessons.ts` and `agent-exercises.ts`.
+ * Imported in `agents/agent-lessons.ts` and `agents/agent-exercises.ts`.
  */
 export function saveStudyOutput(
   kind: StudyOutputKind,
@@ -69,7 +69,7 @@ export function readPreviousExercise(
   return readStudyOutputFile('exercises', dateIso, root);
 }
 
-/** Imported in `agent-lessons.ts` and `agent-exercises.ts`. Used in `test/study-output.test.ts`. */
+/** Imported in `agents/agent-lessons.ts` and `agents/agent-exercises.ts`. Used in `test/study-output.test.ts`. */
 export function listStudyOutputDates(
   kind: StudyOutputKind,
   limit = 10,

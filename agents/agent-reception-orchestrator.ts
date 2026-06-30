@@ -1,11 +1,11 @@
 /**
  * App entry triage: **reception-orchestrator-agent** identifies the relevant agent for
- * each user message — general conversation, lessons, or exercises.
+ * each user message — general conversation, lessons, exercises, vocabulary, or news.
  * CLI entry for `npm run gio` → `askLlmToIdentifyRelevantAgent` then that agent.
  *
  * **Exports**:
  * - `askLlmToIdentifyRelevantAgent` — **reception-orchestrator-agent**; imported in `conversation/session-manager.ts`
- * - `RelevantAgent` — `general` | `lesson` | `exercises` | `vocabulary`
+ * - `RelevantAgent` — `general` | `lesson` | `exercises` | `vocabulary` | `news`
  * - `resolveRelevantAgent` — parse agent output; used in tests
  */
 import { Agent } from '@openai/agents';
@@ -13,21 +13,24 @@ import { fileURLToPath } from 'url';
 import { askLlmToIdentifyLessonIntent } from './agent-lessons.ts';
 import { askLlmToIdentifyExercisesIntent } from './agent-exercises.ts';
 import { askLlmToShowVocabulary } from './agent-vocabulary.ts';
+import { askLlmToCurateNewsForTurn } from './agent-news.ts';
 import {
   afterGeneralConversationReply,
   askLlmToGeneralConversation,
 } from './agent-general-conversation.ts';
-import { askAgentAndLog } from './lib/ask-agent.ts';
-import { logStudyOutputStatus } from './lib/log-study-output-status.ts';
-import { NO_CAPTATION_FOLLOWUP_RULE } from './lib/prompt-rules.ts';
-import { loadAgentTools } from './conversation/tools.ts';
+import { askAgentAndLog } from '../lib/ask-agent.ts';
+import { logStudyOutputStatus } from '../lib/log-study-output-status.ts';
+import type { AgentLoopResult } from '../lib/resolve-agent-output.ts';
+import { NO_CAPTATION_FOLLOWUP_RULE } from '../lib/prompt-rules.ts';
+import { loadAgentTools } from '../conversation/plugin-tools.ts';
 
-/** Reception-orchestrator triage outcomes. Used in `agent-reception-orchestrator.ts`, `conversation/session-manager.ts`, and `test/study-output.test.ts`. */
+/** Reception-orchestrator triage outcomes. Used in `agents/agent-reception-orchestrator.ts`, `conversation/session-manager.ts`, and `test/study-output.test.ts`. */
 export const RelevantAgent = {
   General: 'general',
   Lesson: 'lesson',
   Exercises: 'exercises',
   Vocabulary: 'vocabulary',
+  News: 'news',
 } as const;
 
 export type RelevantAgent = (typeof RelevantAgent)[keyof typeof RelevantAgent];
@@ -35,10 +38,11 @@ export type RelevantAgent = (typeof RelevantAgent)[keyof typeof RelevantAgent];
 /** Used in `createReceptionOrchestratorAgent`. */
 function buildReceptionOrchestratorInstructions(): string {
   return `You are Gio-System's reception-orchestrator agent — the first step for every user message: identify which agent should handle it. Reply with ONLY one word — no punctuation, no explanation:
-- "${RelevantAgent.General}" — general conversation, language Q&A, email, or anything that is NOT specifically requesting lesson, exercises, or vocabulary content.
+- "${RelevantAgent.General}" — general conversation, language Q&A, or anything that is NOT specifically requesting lesson, exercises, vocabulary, or a news article to read.
 - "${RelevantAgent.Lesson}" — the user wants lesson content (study theory, learn, review, or repeat a saved lesson, teaching content).
 - "${RelevantAgent.Exercises}" — the user wants exercises (practice, drills, activities). Repeat or review exercises is exercises; repeat or review a lesson is lesson, not exercises.
 - "${RelevantAgent.Vocabulary}" — the user wants a vocabulary list, word list, pronunciation, IPA, or terms for a topic (not a full lesson or exercise set).
+- "${RelevantAgent.News}" — the user wants a curated news article or reading from their newspaper (e.g. "send me an article", "I have 10 minutes to read the news", "notizie about…", "something to read from the paper"). Not general news chat — they want article content.
 
 ${NO_CAPTATION_FOLLOWUP_RULE}`;
 }
@@ -62,12 +66,13 @@ export function resolveRelevantAgent(
   if (reply === RelevantAgent.Lesson) return RelevantAgent.Lesson;
   if (reply === RelevantAgent.Exercises) return RelevantAgent.Exercises;
   if (reply === RelevantAgent.Vocabulary) return RelevantAgent.Vocabulary;
+  if (reply === RelevantAgent.News) return RelevantAgent.News;
 
   throw new Error(`reception-orchestrator-agent did not produce a valid relevant agent: ${JSON.stringify(result.finalOutput)}`);
 }
 
 /**
- * **reception-orchestrator-agent** — identify the relevant agent: `general`, `lesson`, `exercises`, or `vocabulary`.
+ * **reception-orchestrator-agent** — identify the relevant agent.
  *
  * Imported in `conversation/session-manager.ts` and CLI (`npm run gio` via `gioCli`).
  */
@@ -79,6 +84,15 @@ export async function askLlmToIdentifyRelevantAgent(userPrompt: string): Promise
   const result = await askAgentAndLog(agent, prompt, 'reception-orchestrator-agent');
 
   return resolveRelevantAgent(result);
+}
+
+/** Used in `gioCli`. */
+async function runRelevantAgent(relevantAgent: RelevantAgent, prompt: string): Promise<AgentLoopResult> {
+  if (relevantAgent === RelevantAgent.Lesson) return askLlmToIdentifyLessonIntent(prompt);
+  if (relevantAgent === RelevantAgent.Exercises) return askLlmToIdentifyExercisesIntent(prompt);
+  if (relevantAgent === RelevantAgent.Vocabulary) return askLlmToShowVocabulary(prompt);
+
+  return askLlmToCurateNewsForTurn(prompt);
 }
 
 /** Used in CLI entry when this file is the main module. */
@@ -103,11 +117,7 @@ async function gioCli(prompt: string) {
     return;
   }
 
-  const result = relevantAgent === RelevantAgent.Lesson
-    ? await askLlmToIdentifyLessonIntent(prompt)
-    : relevantAgent === RelevantAgent.Exercises
-      ? await askLlmToIdentifyExercisesIntent(prompt)
-      : await askLlmToShowVocabulary(prompt);
+  const result = await runRelevantAgent(relevantAgent, prompt);
 
   if (relevantAgent === RelevantAgent.Lesson || relevantAgent === RelevantAgent.Exercises) {
     const kind = relevantAgent === RelevantAgent.Lesson ? 'lessons' : 'exercises';
@@ -116,7 +126,8 @@ async function gioCli(prompt: string) {
 
   console.log(`relevant agent: ${relevantAgent}`);
   console.log(result.markdown);
-  if (result.emailed) console.log('Emailed via send_email tool.');
+  if (result.emailed) console.log('News emailed via sendNewsByEmail.');
+  else if (relevantAgent !== RelevantAgent.News && result.emailed) console.log('Emailed via send_email tool.');
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {

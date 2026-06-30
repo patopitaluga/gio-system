@@ -3,17 +3,17 @@
  * language mistakes and practice opportunities. No CLI entry.
  *
  * **Exports**:
- * - `askLlmToIdentifyShortcomings` — **shortcomings-observer-agent**. `agent-general-conversation.ts`, `agent-lessons.ts`, `agent-exercises.ts`, `agent-vocabulary.ts`.
+ * - `askLlmToIdentifyShortcomings` — **shortcomings-observer-agent**. `agents/agent-general-conversation.ts`, `agents/agent-lessons.ts`, `agents/agent-exercises.ts`, `agents/agent-vocabulary.ts`.
  */
 import { Agent } from '@openai/agents';
-import { loadStudentContext } from './lib/student-context.ts';
-import { askAgentAndLog } from './lib/ask-agent.ts';
-import { formatCurrentDate } from './lib/study-plan-context.ts';
-import { loadShortcomingsFile } from './lib/save-shortcomings.ts';
+import { loadStudentContext } from '../lib/student-context.ts';
+import { askAgentAndLog } from '../lib/ask-agent.ts';
+import { formatCurrentDate } from '../lib/study-plan-context.ts';
+import { loadShortcomingsFile } from '../lib/save-shortcomings.ts';
 import {
   SAVE_SHORTCOMING_TOOL_NAME,
   saveShortcomingTool,
-} from './tools/shortcoming-tools/save-shortcoming.ts';
+} from '../tools/shortcomings-tools/save-shortcoming.ts';
 
 /** Used in `askLlmToIdentifyShortcomings`. */
 function buildSystemInstructions(
@@ -96,7 +96,7 @@ function buildTurnInput(
 /**
  * **shortcomings-observer-agent** — detect and save mistakes and practice opportunities from a turn.
  *
- * Imported in `agent-general-conversation.ts`, `agent-lessons.ts`, `agent-exercises.ts`, and `agent-vocabulary.ts`.
+ * Imported in `agents/agent-general-conversation.ts`, `agents/agent-lessons.ts`, `agents/agent-exercises.ts`, and `agents/agent-vocabulary.ts`.
  */
 export async function askLlmToIdentifyShortcomings(
   userPrompt: string,

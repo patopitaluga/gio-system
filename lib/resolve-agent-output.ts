@@ -3,7 +3,7 @@ import { getToolOutputs } from './agent-tool-outputs.ts';
 import type { GenerateStudyOutputResult } from '../tools/study-output-tools/generate-study-output-tool.ts';
 import type { RetrieveStudyOutputResult } from '../tools/study-output-tools/retrieve-existing-study-output.ts';
 
-/** Outcome after an agent loop finishes. Used in `agent-lessons.ts`, `agent-exercises.ts`, and `test/study-output.test.ts`. */
+/** Outcome after an agent loop finishes. Used in `agents/agent-lessons.ts`, `agents/agent-exercises.ts`, and `test/study-output.test.ts`. */
 export type AgentLoopResult = {
   markdown: string;
   emailed: boolean;
@@ -37,7 +37,7 @@ function parseGenerateResult(value: unknown): GenerateStudyOutputResult | undefi
   };
 }
 
-/** Used in `agent-lessons.ts`, `agent-exercises.ts`, and `test/study-output.test.ts`. Prefers retrieve output, then generate, then the agent's final message. */
+/** Used in `agents/agent-lessons.ts`, `agents/agent-exercises.ts`, and `test/study-output.test.ts`. Prefers retrieve output, then generate, then the agent's final message. */
 export function resolveAgentOutput(
   result: { newItems: RunItem[]; finalOutput?: string | null },
   retrieveToolName: string,

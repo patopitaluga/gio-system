@@ -1,30 +1,36 @@
 /**
- * **vocabulary-agent** — themed vocabulary lists with IPA, syllable mnemonics, and
- * pronunciation audio via `speak_pronunciation`.
- * CLI entry for `npm run vocabulary` → `askLlmToShowVocabulary`.
+ * **vocabulary-agent** — themed vocabulary lists with IPA, syllable mnemonics, example
+ * sentences, and pronunciation audio via `speak_pronunciation`.
+ * CLI entry for `npm run vocabulary` → `askLlmToShowVocabulary`. Pass the topic after `--`:
+ * - `npm run vocabulary -- Formula 1 vocabulary`
+ * - `npm run vocabulary -- "how do you say fork in Italian?"`
  *
  * **Exports**:
  * - `askLlmToShowVocabulary` — **vocabulary-agent**. App, CLI (`npm run gio`), tests.
  */
 import { Agent } from '@openai/agents';
 import { fileURLToPath } from 'url';
-import { askAgentAndLog } from './lib/ask-agent.ts';
-import { loadStudentContext } from './lib/student-context.ts';
-import { NO_CAPTATION_FOLLOWUP_RULE } from './lib/prompt-rules.ts';
-import type { AgentLoopResult } from './lib/resolve-agent-output.ts';
-import { askLlmToIdentifyInterests } from './agent-interests.ts';
-import { askLlmToIdentifyShortcomings } from './agent-shortcomings.ts';
-import { logTurnError } from './utils/turn-log.ts';
+import { askAgentAndLog } from '../lib/ask-agent.ts';
+import { loadStudentContext } from '../lib/student-context.ts';
+import { NO_CAPTATION_FOLLOWUP_RULE } from '../lib/prompt-rules.ts';
+import type { AgentLoopResult } from '../lib/resolve-agent-output.ts';
+import { askLlmToIdentifyInterests } from './agent-interests-observer.ts';
+import { askLlmToIdentifyShortcomings } from './agent-shortcomings-observer.ts';
+import { logTurnError } from '../utils/turn-log.ts';
 import {
   SPEAK_PRONUNCIATION_TOOL_NAME,
   speakPronunciationTool,
-} from './tools/vocabulary-tools/speak-pronunciation.ts';
+} from '../tools/vocabulary-tools/speak-pronunciation.ts';
 
 const VOCABULARY_ENTRY_FORMAT = `### {headword in target language} — {translation in student language}
 
 - **IPA:** /.../  (narrow IPA for the target-language pronunciation)
 - **Syllables:** {syllables separated by ·}
 - **Sounds like:** {for each syllable, a familiar word or spelling in the student's language, e.g. "**cu** · like *coo* in "cool" · **rva** · like *rva* in "erva" without the e"}
+- **In context:**
+  - {short example sentence in the target language using the headword naturally}
+  - {optional second sentence, only if it adds a different use (e.g. plural, question, or common collocation)}
+  - *{brief gloss of each sentence in the student's language}*
 - **Audio:** 🔊 [Listen]({audioUrl from ${SPEAK_PRONUNCIATION_TOOL_NAME}})`;
 
 /** Used in `createVocabularyAgent`. */
@@ -38,12 +44,13 @@ ${languageContext}
 
 Core rules:
 1. Use the student profile above for target language and student language. Headwords MUST be in the target language only.
-2. Translations, syllable hints, and "Sounds like" lines go in the student's language.
+2. Translations, syllable hints, "Sounds like" lines, and sentence glosses go in the student's language.
 3. Do not use the student's language for headwords unless they explicitly asked to learn a different target language in this message.
 
 For each headword:
 1. Call ${SPEAK_PRONUNCIATION_TOOL_NAME} with the headword in the target language (short phrase only).
 2. Use the returned audioUrl in the entry. Every headword MUST have audio.
+3. Add 1–2 short **In context** sentences in the target language that use the word naturally at the student's level. Gloss each sentence in the student's language on the italic line below the bullets.
 
 Each entry MUST follow this markdown structure exactly:
 
@@ -69,9 +76,9 @@ function createVocabularyAgent(languageContext: string): Agent {
 }
 
 /**
- * **vocabulary-agent** — vocabulary list with IPA, syllable mnemonics, and audio.
+ * **vocabulary-agent** — vocabulary list with IPA, syllable mnemonics, example sentences, and audio.
  *
- * Imported in `conversation/session-manager.ts`, `agent-reception-orchestrator.ts` (`gioCli`), and CLI (`npm run vocabulary`).
+ * Imported in `conversation/session-manager.ts`, `agents/agent-reception-orchestrator.ts` (`gioCli`), and CLI (`npm run vocabulary`).
  */
 export async function askLlmToShowVocabulary(userPrompt: string): Promise<AgentLoopResult> {
   const prompt = userPrompt.trim();

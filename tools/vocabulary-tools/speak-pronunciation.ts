@@ -5,10 +5,10 @@ import {
   synthesizePronunciationAudio,
 } from '../../lib/synthesize-pronunciation.ts';
 
-/** Used in `agent-vocabulary.ts` and `lib/agent-run-trace.ts`. */
+/** Used in `agents/agent-vocabulary.ts` and `lib/agent-run-trace.ts`. */
 export const SPEAK_PRONUNCIATION_TOOL_NAME = 'speak_pronunciation';
 
-/** Imported in `agent-vocabulary.ts`. */
+/** Imported in `agents/agent-vocabulary.ts`. */
 export const speakPronunciationTool = tool({
   name: SPEAK_PRONUNCIATION_TOOL_NAME,
   description:

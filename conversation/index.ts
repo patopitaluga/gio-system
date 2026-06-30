@@ -12,7 +12,7 @@
  */
 import { TurnSessionManager } from './session-manager.ts';
 import { warmStudentContext } from '../lib/student-context.ts';
-import { loadAgentTools } from './tools.ts';
+import { loadAgentTools } from './plugin-tools.ts';
 
 /**
  * Loads agent tools and creates the session manager for the server lifetime.

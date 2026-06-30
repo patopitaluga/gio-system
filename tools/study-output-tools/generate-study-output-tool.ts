@@ -9,7 +9,7 @@ export type GenerateStudyOutputResult = {
   emailed: boolean;
 };
 
-/** Imported in `agent-lessons.ts`. */
+/** Imported in `agents/agent-lessons.ts`. */
 export function createGenerateNewLessonTool() {
   return tool({
     name: StudyOutputToolName.GenerateLesson,
@@ -23,7 +23,7 @@ export function createGenerateNewLessonTool() {
         .describe('The full user request to pass to generate-lesson-agent'),
     }),
     async execute({ userPrompt }) {
-      const { askLlmToGenerateLesson } = await import('../../agent-lessons.ts');
+      const { askLlmToGenerateLesson } = await import('../../agents/agent-lessons.ts');
       const result = await askLlmToGenerateLesson(userPrompt);
       const payload: GenerateStudyOutputResult = {
         markdown: result.markdown,
@@ -36,7 +36,7 @@ export function createGenerateNewLessonTool() {
   });
 }
 
-/** Imported in `agent-exercises.ts`. */
+/** Imported in `agents/agent-exercises.ts`. */
 export function createGenerateNewExercisesTool() {
   return tool({
     name: StudyOutputToolName.GenerateExercises,
@@ -50,7 +50,7 @@ export function createGenerateNewExercisesTool() {
         .describe('The full user request to pass to generate-exercises-agent'),
     }),
     async execute({ userPrompt }) {
-      const { askLlmToGenerateExercises } = await import('../../agent-exercises.ts');
+      const { askLlmToGenerateExercises } = await import('../../agents/agent-exercises.ts');
       const result = await askLlmToGenerateExercises(userPrompt);
       const payload: GenerateStudyOutputResult = {
         markdown: result.markdown,

@@ -2,9 +2,9 @@ import cron from 'node-cron';
 import {
   askLlmToGenerateExercises,
   sendExercisesByEmail,
-} from './agent-exercises.ts';
-import { askLlmToGenerateLesson, sendLessonByEmail } from './agent-lessons.ts';
-import { askLlmToCurateNews, sendNewsByEmail } from './agent-news.ts';
+} from './agents/agent-exercises.ts';
+import { askLlmToGenerateLesson, sendLessonByEmail } from './agents/agent-lessons.ts';
+import { askLlmToCurateNews, sendNewsByEmail } from './agents/agent-news.ts';
 import { formatCurrentDate, formatLocalDateIso } from './lib/study-plan-context.ts';
 import { readPreviousExercise, readPreviousLesson } from './lib/save-study-output.ts';
 import { logStudyOutputStatus } from './lib/log-study-output-status.ts';

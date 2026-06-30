@@ -3,16 +3,16 @@
  *
  * A turn is one user request (voice, text, and/or image) through to the agent's
  * final text reply. Before calling the multimodal model, this module runs the
- * unified orchestrator in `agent-reception-orchestrator.ts`: one agent decides general vs
+ * unified orchestrator in `agents/agent-reception-orchestrator.ts`: one agent decides general vs
  * lesson vs exercises and retrieve vs generate, otherwise falls back to the
  * conversation assistant (`gpt-realtime-1.5` via the OpenAI Realtime API).
  *
  * Flow per turn:
- * 1. **reception-orchestrator-agent** — `askLlmToIdentifyRelevantAgent()` returns general, lesson, exercises, or vocabulary (no tools).
- * 2. **Lesson / exercises / vocabulary agents** — handle routed turns; conversation assistant handles general.
+ * 1. **reception-orchestrator-agent** — `askLlmToIdentifyRelevantAgent()` returns general, lesson, exercises, vocabulary, or news (no tools).
+ * 2. **Lesson / exercises / vocabulary / news agents** — handle routed turns; conversation assistant handles general.
  *
  * @see {@link https://openai.github.io/openai-agents-js/guides/multi-agent/ | Agent orchestration (SDK)}
- * @see ../agent-reception-orchestrator.ts — unified routing
+ * @see ../agents/agent-reception-orchestrator.ts — unified routing
  *
  * **Exports** (1 class, 2 public methods):
  * - `TurnSessionManager` — session lifecycle and single-turn concurrency guard
@@ -38,11 +38,12 @@ import {
   logTurnError,
   logUserPrompt,
 } from '../utils/turn-log.ts';
-import { askLlmToIdentifyRelevantAgent, RelevantAgent } from '../agent-reception-orchestrator.ts';
-import { askLlmToIdentifyLessonIntent } from '../agent-lessons.ts';
-import { askLlmToIdentifyExercisesIntent } from '../agent-exercises.ts';
-import { askLlmToShowVocabulary } from '../agent-vocabulary.ts';
-import { afterGeneralConversationReply, createAgent, createSessionConfig } from '../agent-general-conversation.ts';
+import { askLlmToIdentifyRelevantAgent, RelevantAgent } from '../agents/agent-reception-orchestrator.ts';
+import { askLlmToIdentifyLessonIntent } from '../agents/agent-lessons.ts';
+import { askLlmToIdentifyExercisesIntent } from '../agents/agent-exercises.ts';
+import { askLlmToShowVocabulary } from '../agents/agent-vocabulary.ts';
+import { askLlmToCurateNewsForTurn } from '../agents/agent-news.ts';
+import { afterGeneralConversationReply, createAgent, createSessionConfig } from '../agents/agent-general-conversation.ts';
 import {
   buildUserPrompt,
   formatToolAction,
@@ -84,7 +85,7 @@ export class TurnSessionManager {
    * Returns a completed {@link TurnResult} when lesson or exercises own the turn,
    * or `null` so the caller can fall back to the conversation assistant (general path).
    *
-   * @see ../agent-reception-orchestrator.ts
+   * @see ../agents/agent-reception-orchestrator.ts
    */
   private async orchestrateTurn(
     userMessage: string,
@@ -98,7 +99,9 @@ export class TurnSessionManager {
       ? await askLlmToIdentifyLessonIntent(userMessage)
       : relevantAgent === RelevantAgent.Exercises
         ? await askLlmToIdentifyExercisesIntent(userMessage)
-        : await askLlmToShowVocabulary(userMessage);
+        : relevantAgent === RelevantAgent.Vocabulary
+          ? await askLlmToShowVocabulary(userMessage)
+          : await askLlmToCurateNewsForTurn(userMessage);
 
     logTurn('reception-orchestrator-agent identified relevant agent', {
       relevantAgent,

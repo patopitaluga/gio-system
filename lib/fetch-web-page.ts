@@ -2,7 +2,7 @@
  * Local HTTP fetch + HTML-to-text for deterministic URL reads.
  *
  * **news-agent** uses OpenAI's hosted `webSearchTool()` from `@openai/agents` instead
- * (see `agent-news.ts`). Keep this module if we add a non-OpenAI LLM provider later —
+ * (see `agents/agent-news.ts`). Keep this module if we add a non-OpenAI LLM provider later —
  * those stacks won't have the Responses API web-search tool, so we'd wire
  * `tools/news-tools/fetch-web-page.ts` back as a function tool on top of `fetchWebPage`.
  */
@@ -100,7 +100,7 @@ export async function fetchWebPage(
   };
 }
 
-/** Imported in `agent-news.ts`. */
+/** Imported in `agents/agent-news.ts`. */
 export function resolveNewsNewspaperUrl(): string {
   const configured = process.env.NEWS_NEWSPAPER_URL?.trim();
 
@@ -109,7 +109,7 @@ export function resolveNewsNewspaperUrl(): string {
   return assertFetchableUrl(configured);
 }
 
-/** Used in `agent-news.ts` (`createNewsAgent`). */
+/** Used in `agents/agent-news.ts` (`createNewsAgent`). */
 export function resolveNewsNewspaperDomain(): string {
   return new URL(resolveNewsNewspaperUrl()).hostname;
 }

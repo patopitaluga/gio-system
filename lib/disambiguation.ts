@@ -22,7 +22,7 @@ export function loadDisambiguation(): string {
   return readFileSync(disambiguationPath, 'utf8').trim();
 }
 
-/** Imported in `agent-general-conversation.ts` and `conversation/session-manager.ts`. Used in `test/disambiguation.test.ts`. */
+/** Imported in `agents/agent-general-conversation.ts` and `conversation/session-manager.ts`. Used in `test/disambiguation.test.ts`. */
 export function buildTranscriptionPrompt(disambiguation = loadDisambiguation()): string | undefined {
   if (!disambiguation) return undefined;
 

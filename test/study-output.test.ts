@@ -11,7 +11,7 @@ import {
 import {
   resolveRelevantAgent,
   RelevantAgent,
-} from '../agent-reception-orchestrator.ts';
+} from '../agents/agent-reception-orchestrator.ts';
 import {
   readPreviousExercise,
   readPreviousLesson,
@@ -248,6 +248,13 @@ describe('study output orchestrator', () => {
       assert.equal(
         resolveRelevantAgent({ finalOutput: RelevantAgent.Vocabulary }),
         RelevantAgent.Vocabulary,
+      );
+    });
+
+    it('returns news for a news reply', () => {
+      assert.equal(
+        resolveRelevantAgent({ finalOutput: RelevantAgent.News }),
+        RelevantAgent.News,
       );
     });
 

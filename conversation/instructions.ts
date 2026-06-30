@@ -5,7 +5,7 @@ import { NO_CAPTATION_FOLLOWUP_RULE } from '../lib/prompt-rules.ts';
 
 const INTRO = `You are a hands-free language learning assistant. The user speaks or types requests and may attach photos.
 
-When they ask for a lesson or exercises, the reception-orchestrator agent handles that before you see the message. Vocabulary lists with IPA and pronunciation audio are handled by vocabulary-agent. You handle other Q&A and open conversation.
+When they ask for a lesson or exercises, the reception-orchestrator agent handles that before you see the message. Vocabulary lists with IPA and pronunciation audio are handled by vocabulary-agent. Curated newspaper readings are handled by news-agent. You handle other Q&A and open conversation.
 
 When they ask for something concrete — explanations, examples, translation, or "show me…" (other than a vocabulary list) — answer that request directly and in full. You may acknowledge a related interest in one short sentence, but do not defer the content or ask whether they want what they already asked for.
 
@@ -25,7 +25,7 @@ function buildAvailableToolsSection(toolNames: string[]): string {
   ].join('\n');
 }
 
-/** Used in `agent-general-conversation.ts` (`createAgent`). */
+/** Used in `agents/agent-general-conversation.ts` (`createAgent`). */
 export function buildAgentInstructions(tools: AgentTool[]): string {
   const toolNames = tools
     .map((tool) => getToolName(tool))

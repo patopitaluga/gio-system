@@ -7,10 +7,10 @@ import {
   type LearningMemoryKind,
 } from '../../lib/save-shortcomings.ts';
 
-/** Used in `agent-shortcomings.ts` and `lib/agent-run-trace.ts`. */
+/** Used in `agents/agent-shortcomings-observer.ts` and `lib/agent-run-trace.ts`. */
 export const SAVE_SHORTCOMING_TOOL_NAME = 'save_shortcoming';
 
-/** Imported in `agent-shortcomings.ts`. */
+/** Imported in `agents/agent-shortcomings-observer.ts`. */
 export const saveShortcomingTool = tool({
   name: SAVE_SHORTCOMING_TOOL_NAME,
   description:
