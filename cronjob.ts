@@ -8,6 +8,8 @@ import { formatCurrentDate, formatLocalDateIso } from './lib/study-plan-context.
 import { readPreviousExercise, readPreviousLesson } from './lib/save-study-output.ts';
 import { logStudyOutputStatus } from './lib/log-study-output-status.ts';
 
+if (!process.env.OPENAI_API_KEY?.trim()) throw new Error('OPENAI_API_KEY is not set');
+
 type CronSchedule = {
   id: string;
   label: string;
@@ -74,7 +76,7 @@ function isDue(schedule: CronSchedule): boolean {
   return new Date().getHours() === schedule.hour;
 }
 
-async function runSchedule(schedule: CronSchedule): Promise<void> {
+async function performSchedule(schedule: CronSchedule): Promise<void> {
   const today = todayKey();
 
   if (lastRunBySchedule.get(schedule.id) === today) return;
@@ -92,9 +94,8 @@ async function checkSchedules(): Promise<void> {
 
   console.log(`[cronjob] ${dueSchedules.length} scheduled job(s) due`);
 
-  for (const schedule of dueSchedules)
-    try {
-      await runSchedule(schedule);
+  for (const schedule of dueSchedules) try {
+      await performSchedule(schedule);
     } catch (error) {
       console.error(`[cronjob] ${schedule.label} failed`, error);
     }
@@ -122,7 +123,7 @@ console.log('[cronjob] Active schedules:', SCHEDULES.filter((s) => s.enabled).ma
  * should run (both target hour 9, once per day).
  */
 cron.schedule('0 * * * *', () => {
-  void checkSchedules();
+  checkSchedules();
 });
 
-void checkSchedules();
+checkSchedules();

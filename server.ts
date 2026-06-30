@@ -24,6 +24,8 @@ export function isSpeechPreviewEnabled(): boolean {
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) { // is running by cli command
+  if (!process.env.OPENAI_API_KEY?.trim()) throw new Error('OPENAI_API_KEY is not set');
+
   const app = express();
   const { sessionManager } = await createAgentService();
   const handleTurnPost = createTurnPostHandler(sessionManager);

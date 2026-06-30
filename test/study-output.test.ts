@@ -9,8 +9,8 @@ import {
   resolveAgentOutput,
 } from '../lib/resolve-agent-output.ts';
 import {
-  resolveOrchestratorRoute,
-  OrchestratorRoute,
+  resolveRelevantAgent,
+  RelevantAgent,
 } from '../agent-reception-orchestrator.ts';
 import {
   readPreviousExercise,
@@ -222,32 +222,32 @@ describe('study output orchestrator', () => {
     });
   });
 
-  describe('resolveOrchestratorRoute', () => {
+  describe('resolveRelevantAgent', () => {
     it('returns general for a general reply', () => {
       assert.equal(
-        resolveOrchestratorRoute({ finalOutput: OrchestratorRoute.General }),
-        OrchestratorRoute.General,
+        resolveRelevantAgent({ finalOutput: RelevantAgent.General }),
+        RelevantAgent.General,
       );
     });
 
     it('returns lesson for a lesson reply', () => {
       assert.equal(
-        resolveOrchestratorRoute({ finalOutput: OrchestratorRoute.Lesson }),
-        OrchestratorRoute.Lesson,
+        resolveRelevantAgent({ finalOutput: RelevantAgent.Lesson }),
+        RelevantAgent.Lesson,
       );
     });
 
     it('returns exercises for an exercises reply', () => {
       assert.equal(
-        resolveOrchestratorRoute({ finalOutput: OrchestratorRoute.Exercises }),
-        OrchestratorRoute.Exercises,
+        resolveRelevantAgent({ finalOutput: RelevantAgent.Exercises }),
+        RelevantAgent.Exercises,
       );
     });
 
-    it('throws for an invalid route reply', () => {
+    it('throws for an invalid relevant-agent reply', () => {
       assert.throws(
-        () => resolveOrchestratorRoute({ finalOutput: 'maybe lesson?' }),
-        /did not produce a valid route/,
+        () => resolveRelevantAgent({ finalOutput: 'maybe lesson?' }),
+        /did not produce a valid relevant agent/,
       );
     });
   });

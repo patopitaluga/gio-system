@@ -94,8 +94,7 @@ export function summarizeToolResultForLog(toolName: string, result: string): str
     || toolName === StudyOutputToolName.GenerateExercises
     || toolName === StudyOutputToolName.RetrieveLesson
     || toolName === StudyOutputToolName.RetrieveExercises
-  ) {
-    try {
+  ) try {
       const parsed = JSON.parse(result) as {
         savedPath?: string;
         found?: boolean;
@@ -103,16 +102,29 @@ export function summarizeToolResultForLog(toolName: string, result: string): str
         markdown?: string;
       };
 
-      if (typeof parsed.found === 'boolean') {
-        return parsed.found
+      if (typeof parsed.found === 'boolean') return parsed.found
           ? `found:true · ${parsed.dateIso ?? '?'} · ${parsed.markdown?.length ?? 0} chars`
           : `found:false · ${parsed.dateIso ?? '?'}`;
-      }
 
       return `savedPath:${parsed.savedPath ?? '?'} · ${parsed.markdown?.length ?? 0} chars`;
     } catch {
       return truncate(result, 240);
     }
+
+  if (toolName === 'save_interest') try {
+    const parsed = JSON.parse(result) as {
+      saved?: boolean;
+      duplicate?: boolean;
+      topic?: string;
+      savedPath?: string;
+    };
+
+    if (parsed.duplicate) return `duplicate · ${parsed.topic ?? '?'}`;
+    if (parsed.saved) return `saved · ${parsed.topic ?? '?'} → ${parsed.savedPath ?? '?'}`;
+
+    return truncate(result, 240);
+  } catch {
+    return truncate(result, 240);
   }
 
   return truncate(result, 240);
@@ -128,7 +140,7 @@ function describeRequestReason(number: number, previousTools: TracedToolCall[]):
   return `after tool ${toolNames.join(', ')}`;
 }
 
-function logLiveRequestStart(contextLabel: string, request: TracedRequest): void {
+function logLiveRequestStart(contextLabel: string, request: TracedRequest) {
   console.log(
     styleText(
       'magenta',
@@ -138,14 +150,14 @@ function logLiveRequestStart(contextLabel: string, request: TracedRequest): void
   logOpenAiThinking();
 }
 
-function markModelResponseReceived(request: TracedRequest | null): void {
+function markModelResponseReceived(request: TracedRequest | null) {
   if (!request || request.responseLogged) return;
 
   request.responseLogged = true;
   logOpenAiResponseReceived(request.number);
 }
 
-function logLiveToolStart(requestNumber: number, toolName: string, args: Record<string, unknown>): void {
+function logLiveToolStart(requestNumber: number, toolName: string, args: Record<string, unknown>) {
   console.log(
     styleText(
       'cyan',
@@ -154,14 +166,14 @@ function logLiveToolStart(requestNumber: number, toolName: string, args: Record<
   );
 }
 
-function logLiveToolEnd(requestNumber: number, toolName: string, result: string): void {
+function logLiveToolEnd(requestNumber: number, toolName: string, result: string) {
   const isError = isToolErrorResult(result);
   const line = `  ${isError ? '✗' : '✓'} Tool result [request ${requestNumber}]: ${toolName} → ${summarizeToolResultForLog(toolName, result)}`;
 
   console.log(styleText(isError ? 'red' : 'dim', line));
 }
 
-function logRunTraceSummary(contextLabel: string, requests: TracedRequest[], result?: RunResult<any, any>): void {
+function logRunTraceSummary(contextLabel: string, requests: TracedRequest[], result?: RunResult<any, any>) {
   console.log(
     styleText('blue', `📋 Trace — ${contextLabel} — ${requests.length} API request(s)`),
   );
@@ -181,14 +193,12 @@ function logRunTraceSummary(contextLabel: string, requests: TracedRequest[], res
       ),
     );
 
-    if (usageLine) {
-      console.log(
+    if (usageLine) console.log(
         styleText(
           'yellow',
           `     📊 ${usageLine.totalTokens} tokens (input: ${usageLine.inputTokens} · output: ${usageLine.outputTokens})`,
         ),
       );
-    }
 
     if (request.tools.length === 0) {
       console.log(styleText('dim', '     (no tools in this turn)'));
@@ -211,12 +221,10 @@ function logRunTraceSummary(contextLabel: string, requests: TracedRequest[], res
     }
   }
 
-  if (result) {
-    logOpenAiUsage(contextLabel, usageFromAgentsUsage(result.state.usage), { prefix: '  ' });
-  }
+  if (result) logOpenAiUsage(contextLabel, usageFromAgentsUsage(result.state.usage), { prefix: '  ' });
 }
 
-/** Imported in `lib/invoke-agent.ts`. */
+/** Imported in `lib/ask-agent.ts`. */
 export function createAgentRunTrace(contextLabel: string) {
   const runner = new Runner();
   const requests: TracedRequest[] = [];

@@ -11,10 +11,9 @@
  */
 import { Agent } from '@openai/agents';
 import type { RunItem } from '@openai/agents';
-import { invokeLoggedAgent } from './lib/invoke-agent.ts';
+import { askAgentAndLog } from './lib/ask-agent.ts';
 import { fileURLToPath } from 'url';
 import {
-  assertAgentEnv,
   formatCurrentDate,
   loadStudyPlan,
   type StudyPlanDate,
@@ -25,7 +24,8 @@ import { logStudyOutputStatus } from './lib/log-study-output-status.ts';
 import { NO_CAPTATION_FOLLOWUP_RULE } from './lib/prompt-rules.ts';
 import { resolveAgentOutput, type AgentLoopResult } from './lib/resolve-agent-output.ts';
 import { listStudyOutputDates } from './lib/save-study-output.ts';
-import { scheduleInterestsAnalysis } from './agent-interests.ts';
+import { askLlmToIdentifyInterests } from './agent-interests.ts';
+import { logTurnError } from './utils/turn-log.ts';
 import { createGenerateNewLessonTool } from './tools/study-output-tools/generate-study-output-tool.ts';
 import { retrieveExistingLessonTool } from './tools/study-output-tools/retrieve-existing-study-output.ts';
 import { StudyOutputToolName } from './tools/study-output-tools/tool-names.ts';
@@ -81,23 +81,31 @@ function createIdentifyLessonIntentAgent(today: StudyPlanDate, lessonDates: stri
   });
 }
 
-/** **identify-lesson-intent-agent** — retrieve saved file or call `generate_new_lesson`. App, CLI, tests. */
+/**
+ * **identify-lesson-intent-agent** — retrieve saved file or call `generate_new_lesson`.
+ *
+ * Imported in `conversation/session-manager.ts`, CLI (`npm run lesson`), tests, and
+ * `agent-reception-orchestrator.ts` (`npm run gio`).
+ */
 export async function askLlmToIdentifyLessonIntent(userPrompt: string): Promise<AgentLoopResult> {
-  assertAgentEnv();
-
   const prompt = userPrompt.trim();
   if (!prompt) throw new Error('Lesson prompt is required');
 
   const today = formatCurrentDate();
   const lessonDates = listStudyOutputDates('lessons', 10);
   const agent = createIdentifyLessonIntentAgent(today, lessonDates);
-  const result = await invokeLoggedAgent(agent, prompt, 'identify-lesson-intent-agent');
+  const result = await askAgentAndLog(agent, prompt, 'identify-lesson-intent-agent');
 
-  return resolveAgentOutput(
+  const output = resolveAgentOutput(
     result,
     StudyOutputToolName.RetrieveLesson,
     StudyOutputToolName.GenerateLesson,
   );
+  askLlmToIdentifyInterests(prompt, output.markdown, 'lesson').catch((error) => {
+    logTurnError('interests identification failed', error, { source: 'lesson' });
+  });
+
+  return output;
 }
 
 /** Used in `askLlmToGenerateLesson`. */
@@ -163,12 +171,14 @@ function wasToolUsed(result: { newItems: RunItem[] }, toolName: string): boolean
   });
 }
 
-/** **generate-lesson-agent** — write new lesson from study plan. Cron, `generate_new_lesson`. Defaults to today's lesson when `userPrompt` is omitted. */
+/**
+ * **generate-lesson-agent** — write new lesson from study plan. Cron, `generate_new_lesson`.
+ *
+ * Imported in `cronjob.ts` and `tools/study-output-tools/generate-study-output-tool.ts`.
+ */
 export async function askLlmToGenerateLesson(
   userPrompt: string = DEFAULT_LESSON_PROMPT,
 ): Promise<AgentLoopResult> {
-  assertAgentEnv();
-
   const prompt = userPrompt.trim();
   if (!prompt) throw new Error('Lesson prompt is required');
 
@@ -176,7 +186,7 @@ export async function askLlmToGenerateLesson(
   const studyPlan = loadStudyPlan();
   const agent = createGenerateLessonAgent(studyPlan, today);
 
-  const result = await invokeLoggedAgent(agent, prompt, 'generate-lesson-agent');
+  const result = await askAgentAndLog(agent, prompt, 'generate-lesson-agent');
 
   warnIfMarkStudyPlanToolMissing(result);
 
@@ -202,11 +212,11 @@ function readCliPrompt(): string {
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) { // is running by cli command
+  if (!process.env.OPENAI_API_KEY?.trim()) throw new Error('OPENAI_API_KEY is not set');
   const prompt = readCliPrompt();
 
   askLlmToIdentifyLessonIntent(prompt)
     .then((result) => {
-      scheduleInterestsAnalysis(prompt, result.markdown, 'lesson');
       logStudyOutputStatus('lessons', result.source, result.savedPath);
       console.log(result.markdown);
       if (result.emailed) console.log('Lesson emailed via send_email tool.');

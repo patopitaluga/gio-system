@@ -8,7 +8,7 @@
  * conversation assistant (`gpt-realtime-1.5` via the OpenAI Realtime API).
  *
  * Flow per turn:
- * 1. **reception-orchestrator-agent** — `runOrchestrator()` returns general, lesson, or exercises (no tools).
+ * 1. **reception-orchestrator-agent** — `askLlmToIdentifyRelevantAgent()` returns general, lesson, or exercises (no tools).
  * 2. **Lesson / exercises agents** — retrieve or generate when routed; conversation assistant handles general.
  *
  * @see {@link https://openai.github.io/openai-agents-js/guides/multi-agent/ | Agent orchestration (SDK)}
@@ -38,11 +38,10 @@ import {
   logTurnError,
   logUserPrompt,
 } from '../utils/turn-log.ts';
-import { runOrchestrator, OrchestratorRoute } from '../agent-reception-orchestrator.ts';
+import { askLlmToIdentifyRelevantAgent, RelevantAgent } from '../agent-reception-orchestrator.ts';
 import { askLlmToIdentifyLessonIntent } from '../agent-lessons.ts';
 import { askLlmToIdentifyExercisesIntent } from '../agent-exercises.ts';
-import { scheduleInterestsAnalysis } from '../agent-interests.ts';
-import { createAgent, createSessionConfig } from './general-conversation-agent.ts';
+import { afterGeneralConversationReply, createAgent, createSessionConfig } from '../agent-general-conversation.ts';
 import {
   buildUserPrompt,
   formatToolAction,
@@ -54,23 +53,6 @@ import type { AgentTool } from '../lib/tools.ts';
 import type { StreamingTurn, TurnMetadata, TurnResult, TurnStreamEvent } from './types.ts';
 
 const TURN_TIMEOUT_MS = 120_000;
-
-function interestsSourceFromTurn(result: TurnResult): string {
-  const action = result.actions[0] ?? '';
-
-  if (action.startsWith('lesson:')) return 'lesson';
-  if (action.startsWith('exercises:')) return 'exercises';
-
-  return 'conversation';
-}
-
-function scheduleInterestsFromTurn(result: TurnResult): void {
-  scheduleInterestsAnalysis(
-    result.userPrompt,
-    result.response,
-    interestsSourceFromTurn(result),
-  );
-}
 
 /**
  * Keeps the conversation assistant session alive, routes learning turns, and runs
@@ -103,20 +85,20 @@ export class TurnSessionManager {
    *
    * @see ../agent-reception-orchestrator.ts
    */
-  private async runOrchestratedTurn(
+  private async orchestrateTurn(
     userMessage: string,
     metadata: TurnMetadata,
     onStream?: (event: TurnStreamEvent) => void,
   ): Promise<TurnResult | null> {
-    const route = await runOrchestrator(userMessage);
-    if (route === OrchestratorRoute.General) return null;
+    const relevantAgent = await askLlmToIdentifyRelevantAgent(userMessage);
+    if (relevantAgent === RelevantAgent.General) return null;
 
-    const result = route === OrchestratorRoute.Lesson
+    const result = relevantAgent === RelevantAgent.Lesson
       ? await askLlmToIdentifyLessonIntent(userMessage)
       : await askLlmToIdentifyExercisesIntent(userMessage);
 
-    logTurn('reception-orchestrator-agent routed', {
-      route,
+    logTurn('reception-orchestrator-agent identified relevant agent', {
+      relevantAgent,
       source: result.source,
     });
 
@@ -125,7 +107,7 @@ export class TurnSessionManager {
 
     return {
       userPrompt: buildUserPrompt(metadata, userMessage),
-      actions: [`${route}: ${result.source}`],
+      actions: [`${relevantAgent}: ${result.source}`],
       response: content,
     };
   }
@@ -136,7 +118,6 @@ export class TurnSessionManager {
       commit: async () => {
         this.busy = false;
         this.activeTurn = null;
-        scheduleInterestsFromTurn(result);
         return result;
       },
       cancel: () => {
@@ -192,10 +173,9 @@ export class TurnSessionManager {
       hasQuestion: Boolean(metadata.question?.trim()),
     });
 
-    if (!metadata.hasAudio && metadata.question?.trim())
-      try {
-        // Unified orchestrator: route study output or continue to conversation assistant below.
-        const orchestrated = await this.runOrchestratedTurn(
+    if (!metadata.hasAudio && metadata.question?.trim()) try {
+        // Reception orchestrator: lesson/exercises agents, or general conversation below.
+        const orchestrated = await this.orchestrateTurn(
           metadata.question.trim(),
           metadata,
           onStream,
@@ -267,7 +247,6 @@ export class TurnSessionManager {
           actionCount: result.actions.length,
           responseLength: result.response.length,
         });
-        scheduleInterestsFromTurn(result);
         resolve(result);
       };
 
@@ -286,7 +265,7 @@ export class TurnSessionManager {
         responseCreateSent = true;
 
         try {
-          const orchestrated = await this.runOrchestratedTurn(transcript, metadata, onStream);
+          const orchestrated = await this.orchestrateTurn(transcript, metadata, onStream);
           if (orchestrated) {
             finishWithResult(orchestrated);
             return;
@@ -308,7 +287,7 @@ export class TurnSessionManager {
       };
 
       maybeCreateResponse = () => {
-        void maybeCreateResponseImpl();
+        maybeCreateResponseImpl();
       };
 
       const finish = (error?: Error) => {
@@ -340,7 +319,7 @@ export class TurnSessionManager {
           actions,
           response,
         };
-        scheduleInterestsFromTurn(turnResult);
+        afterGeneralConversationReply(turnResult.userPrompt, turnResult.response);
         resolve(turnResult);
       };
 
@@ -389,7 +368,7 @@ export class TurnSessionManager {
           transcript = event.transcript ?? '';
           transcriptionFinalized = true;
           if (event.transcript) onStream?.({ type: 'transcript.completed', transcript: event.transcript });
-          void maybeCreateResponseImpl();
+          maybeCreateResponseImpl();
         }
 
         if (event.type === 'response.created') {
@@ -416,9 +395,7 @@ export class TurnSessionManager {
           });
 
           const usage = usageFromRealtimeResponse(event.response?.usage);
-          if (usage) {
-            logOpenAiUsage('general-conversation-agent', usage);
-          }
+          if (usage) logOpenAiUsage('general-conversation-agent', usage);
 
           if (status !== 'completed') {
             finish(new Error(`Response status: ${status ?? 'unknown'}`));
@@ -458,12 +435,10 @@ export class TurnSessionManager {
       if (metadata.question) messageContent.push({ type: 'input_text', text: metadata.question });
 
       if (messageContent.length > 0) {
-        if (metadata.question?.trim()) {
-          logUserPrompt('general-conversation-agent', metadata.question, {
+        if (metadata.question?.trim()) logUserPrompt('general-conversation-agent', metadata.question, {
             hasImage: Boolean(metadata.imageDataUrl),
             hasAudio: Boolean(metadata.hasAudio),
           });
-        }
 
         session.transport.sendMessage(
           {
@@ -519,8 +494,7 @@ export class TurnSessionManager {
   }
 
   private async connect(): Promise<ConversationSession> {
-    const apiKey = process.env.OPENAI_API_KEY;
-    if (!apiKey) throw new Error('OPENAI_API_KEY is not set');
+    const apiKey = process.env.OPENAI_API_KEY!;
 
     const session = new ConversationSession(createAgent(this.agentTools), createSessionConfig());
     const transcriptionPrompt = buildTranscriptionPrompt();

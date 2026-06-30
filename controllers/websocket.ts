@@ -36,8 +36,7 @@ function isAllowedOrigin(request: IncomingMessage): boolean {
 }
 
 function sendJson(socket: WebSocket, payload: Record<string, unknown>) {
-  if (socket.readyState === socket.OPEN)
-    socket.send(JSON.stringify(payload));
+  if (socket.readyState === socket.OPEN) socket.send(JSON.stringify(payload));
 }
 
 /** Imported in `server.ts`. */

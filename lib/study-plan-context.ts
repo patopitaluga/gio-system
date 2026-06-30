@@ -53,9 +53,3 @@ export function formatCurrentDate(): StudyPlanDate {
 export function loadStudyPlan(): string {
   return readFileSync(STUDY_PLAN_PATH, 'utf8').trim();
 }
-
-/** Imported in `agent-lessons.ts`, `agent-exercises.ts`, `agent-interests.ts`, and `agent-reception-orchestrator.ts`. */
-export function assertAgentEnv(): void {
-  if (!process.env.OPENAI_API_KEY?.trim())
-    throw new Error('OPENAI_API_KEY is not set');
-}

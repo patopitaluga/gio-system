@@ -9,6 +9,8 @@ import path from 'path';
 import { projectRoot } from '../../lib/workspace.ts';
 import { askLlmToIdentifyLessonIntent } from '../../agent-lessons.ts';
 
+if (!process.env.OPENAI_API_KEY?.trim()) throw new Error('OPENAI_API_KEY is not set');
+
 const INTEGRATION_DATE = '2099-03-15';
 const INTEGRATION_MARKER = `integration-lesson-${INTEGRATION_DATE}`;
 
@@ -28,7 +30,7 @@ function getLocalYesterdayIso(): string {
   ].join('-');
 }
 
-function writeIntegrationLesson(dateIso: string, content: string): void {
+function writeIntegrationLesson(dateIso: string, content: string) {
   const filePath = integrationLessonPath(dateIso);
   mkdirSync(path.dirname(filePath), { recursive: true });
   writeFileSync(filePath, content, 'utf8');
@@ -42,7 +44,7 @@ function backupLessonFile(dateIso: string): string | null {
   return readFileSync(filePath, 'utf8');
 }
 
-function restoreLessonFile(dateIso: string, backup: string | null): void {
+function restoreLessonFile(dateIso: string, backup: string | null) {
   const filePath = integrationLessonPath(dateIso);
 
   if (backup === null) {

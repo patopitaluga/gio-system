@@ -24,7 +24,7 @@ export function logStudyOutputStatus(
   source: StudyOutputSource,
   savedPath: string,
   options?: { prefix?: string },
-): void {
+) {
   const prefix = options?.prefix ?? '';
 
   if (source === 'archive') {

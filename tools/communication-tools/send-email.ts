@@ -48,8 +48,7 @@ function resolveRecipient(nameOrEmail?: string): string {
   if (!raw || raw === 'me' || raw === 'self') {
     const fallback = process.env.SMTP_FROM ?? process.env.SMTP_USER;
 
-    if (!fallback)
-      throw new Error('No default recipient configured. Provide a full email address in "to".');
+    if (!fallback) throw new Error('No default recipient configured. Provide a full email address in "to".');
 
     return fallback;
   }
@@ -77,8 +76,7 @@ export type SendEmailResult = {
 
 /** Imported in `agent-lessons.ts` and `agent-exercises.ts` (`sendLessonByEmail` / `sendExercisesByEmail`). */
 export async function sendEmail(input: SendEmailInput): Promise<SendEmailResult> {
-  if (!isEmailConfigured())
-    throw new Error('SMTP is not configured. Set SMTP_HOST, SMTP_USER, and SMTP_PASS in .env');
+  if (!isEmailConfigured()) throw new Error('SMTP is not configured. Set SMTP_HOST, SMTP_USER, and SMTP_PASS in .env');
 
   const from = process.env.SMTP_FROM ?? process.env.SMTP_USER;
   const recipient = resolveRecipient(input.to);

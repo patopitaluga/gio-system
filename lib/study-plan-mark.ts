@@ -10,8 +10,7 @@ export function markStudyPlanItemInContent(
   const header = `- **${todayLabel}:**`;
   const headerIndex = content.indexOf(header);
 
-  if (headerIndex === -1)
-    throw new Error(`No plan entry for ${todayLabel}`);
+  if (headerIndex === -1) throw new Error(`No plan entry for ${todayLabel}`);
 
   const afterHeader = content.slice(headerIndex + header.length);
   const nextEntryOffset = afterHeader.search(/\n- \*\*|\n## /);
@@ -41,8 +40,7 @@ export function markStudyPlanItemInContent(
     return line.replace('- [ ]', '- [x]');
   });
 
-  if (!markedLine)
-    throw new Error(`Could not find plan item matching "${itemText}" for ${todayLabel}`);
+  if (!markedLine) throw new Error(`Could not find plan item matching "${itemText}" for ${todayLabel}`);
 
   const updatedSection = updatedLines.join('\n');
   const updatedContent = content.slice(0, headerIndex) + updatedSection + content.slice(sectionEnd);

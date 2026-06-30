@@ -9,10 +9,9 @@
  */
 import { Agent } from '@openai/agents';
 import type { RunItem } from '@openai/agents';
-import { invokeLoggedAgent } from './lib/invoke-agent.ts';
+import { askAgentAndLog } from './lib/ask-agent.ts';
 import { fileURLToPath } from 'url';
 import {
-  assertAgentEnv,
   formatCurrentDate,
   loadStudyPlan,
   type StudyPlanDate,
@@ -23,7 +22,8 @@ import { logStudyOutputStatus } from './lib/log-study-output-status.ts';
 import { NO_CAPTATION_FOLLOWUP_RULE } from './lib/prompt-rules.ts';
 import { resolveAgentOutput, type AgentLoopResult } from './lib/resolve-agent-output.ts';
 import { listStudyOutputDates } from './lib/save-study-output.ts';
-import { scheduleInterestsAnalysis } from './agent-interests.ts';
+import { askLlmToIdentifyInterests } from './agent-interests.ts';
+import { logTurnError } from './utils/turn-log.ts';
 import { createGenerateNewExercisesTool } from './tools/study-output-tools/generate-study-output-tool.ts';
 import { retrieveExistingExercisesTool } from './tools/study-output-tools/retrieve-existing-study-output.ts';
 import { StudyOutputToolName } from './tools/study-output-tools/tool-names.ts';
@@ -80,23 +80,31 @@ function createIdentifyExercisesIntentAgent(today: StudyPlanDate, exerciseDates:
   });
 }
 
-/** **identify-exercises-intent-agent** — retrieve saved file or call `generate_new_exercises`. App, CLI, tests. */
+/**
+ * **identify-exercises-intent-agent** — retrieve saved file or call `generate_new_exercises`.
+ *
+ * Imported in `conversation/session-manager.ts`, CLI (`npm run exercises`), tests, and
+ * `agent-reception-orchestrator.ts` (`npm run gio`).
+ */
 export async function askLlmToIdentifyExercisesIntent(userPrompt: string): Promise<AgentLoopResult> {
-  assertAgentEnv();
-
   const prompt = userPrompt.trim();
   if (!prompt) throw new Error('Exercises prompt is required');
 
   const today = formatCurrentDate();
   const exerciseDates = listStudyOutputDates('exercises', 10);
   const agent = createIdentifyExercisesIntentAgent(today, exerciseDates);
-  const result = await invokeLoggedAgent(agent, prompt, 'identify-exercises-intent-agent');
+  const result = await askAgentAndLog(agent, prompt, 'identify-exercises-intent-agent');
 
-  return resolveAgentOutput(
+  const output = resolveAgentOutput(
     result,
     StudyOutputToolName.RetrieveExercises,
     StudyOutputToolName.GenerateExercises,
   );
+  askLlmToIdentifyInterests(prompt, output.markdown, 'exercises').catch((error) => {
+    logTurnError('interests identification failed', error, { source: 'exercises' });
+  });
+
+  return output;
 }
 
 /** Used in `askLlmToGenerateExercises`. */
@@ -162,12 +170,14 @@ function wasToolUsed(result: { newItems: RunItem[] }, toolName: string): boolean
   });
 }
 
-/** **generate-exercises-agent** — write new exercises from study plan. Cron, `generate_new_exercises`. Defaults when `userPrompt` is omitted. */
+/**
+ * **generate-exercises-agent** — write new exercises from study plan. Cron, `generate_new_exercises`.
+ *
+ * Imported in `cronjob.ts` and `tools/study-output-tools/generate-study-output-tool.ts`.
+ */
 export async function askLlmToGenerateExercises(
   userPrompt: string = DEFAULT_EXERCISES_PROMPT,
 ): Promise<AgentLoopResult> {
-  assertAgentEnv();
-
   const prompt = userPrompt.trim();
   if (!prompt) throw new Error('Exercises prompt is required');
 
@@ -175,7 +185,7 @@ export async function askLlmToGenerateExercises(
   const studyPlan = loadStudyPlan();
   const agent = createGenerateExercisesAgent(studyPlan, today);
 
-  const result = await invokeLoggedAgent(agent, prompt, 'generate-exercises-agent');
+  const result = await askAgentAndLog(agent, prompt, 'generate-exercises-agent');
 
   assertMarkStudyPlanToolUsed(result);
 
@@ -201,11 +211,11 @@ function readCliPrompt(): string {
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) { // is running by cli command
+  if (!process.env.OPENAI_API_KEY?.trim()) throw new Error('OPENAI_API_KEY is not set');
   const prompt = readCliPrompt();
 
   askLlmToIdentifyExercisesIntent(prompt)
     .then((result) => {
-      scheduleInterestsAnalysis(prompt, result.markdown, 'exercises');
       logStudyOutputStatus('exercises', result.source, result.savedPath);
       console.log(result.markdown);
       if (result.emailed) console.log('Exercises emailed via send_email tool.');

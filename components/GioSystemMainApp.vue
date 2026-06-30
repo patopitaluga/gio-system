@@ -73,7 +73,7 @@ const playCompletionChime = () => {
     }
 
     completionChime.currentTime = 0;
-    void completionChime.play();
+    completionChime.play();
   } catch (error) {
     console.warn('Could not play completion chime', error);
   }

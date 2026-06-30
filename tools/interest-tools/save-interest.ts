@@ -1,6 +1,6 @@
 import { tool } from '@openai/agents';
 import { z } from 'zod';
-import { saveInterest } from '../../lib/save-interests.ts';
+import { saveInterest, logInterestSaved, logInterestAlreadySaved } from '../../lib/save-interests.ts';
 
 /** Used in `agent-interests.ts` and `lib/agent-run-trace.ts`. */
 export const SAVE_INTEREST_TOOL_NAME = 'save_interest';
@@ -23,6 +23,9 @@ export const saveInterestTool = tool({
   }),
   async execute({ topic, note }) {
     const result = saveInterest(topic, note);
+
+    if (result.saved) logInterestSaved(result.topic, result.savedPath);
+    else if (result.duplicate) logInterestAlreadySaved(result.topic, result.savedPath);
 
     return JSON.stringify(result);
   },

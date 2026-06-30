@@ -4,7 +4,7 @@ Gio-System is a personal language-learning assistant. Talk or type to practice c
 
 The app combines a multimodal **conversation assistant** (voice, text, and images via `gpt-realtime-1.5`) with dedicated **lesson** and **exercises** agents that read `study-plan.md`, save output as dated markdown files, and mark completed plan items.
 
-------
+---
 
 ## Index
 
@@ -20,7 +20,9 @@ The app combines a multimodal **conversation assistant** (voice, text, and image
 - [Security](#security)
 - [License](#license)
 
-------
+---
+
+
 
 ## Requirements
 
@@ -28,7 +30,9 @@ The app combines a multimodal **conversation assistant** (voice, text, and image
 - [npm](https://www.npmjs.com/) **11.5** or later
 - An OpenAI API key with access to multimodal models (for example `gpt-realtime-1.5`, `gpt-4o-mini-transcribe`) and the Agents API used for lessons and exercises
 
-------
+---
+
+
 
 ## Installation
 
@@ -57,9 +61,13 @@ npm test
 
 Unit tests finish in under a second; two integration tests call the lesson agent against real API (~6–7 s total). Look for the `study output LLM integration` suite and `56` passing tests.
 
-------
+---
+
+
 
 ## Personal configuration
+
+
 
 ### Study plan
 
@@ -124,9 +132,13 @@ Restart the server after adding or removing plugins.
 
 Optional: set `PLUGINS_DIR` in `.env` to use a different folder.
 
-------
+---
+
+
 
 ## Usage
+
+
 
 ### Desktop app (recommended)
 
@@ -144,9 +156,18 @@ npm run server
 
 Open [http://localhost:3001](http://localhost:3001) in your browser.
 
-### CLI — lessons and exercises
+### CLI
 
-Generate or retrieve content from the command line. CLI entry points skip reception-orchestrator-agent — `npm run lesson` always runs **identify-lesson-intent-agent**, `npm run exercises` always runs **identify-exercises-intent-agent**:
+Main entry — routes through **reception-orchestrator-agent** like the app, then runs the lesson or exercises agent when triaged:
+
+```bash
+npm run gio -- give me today's lesson
+npm run gio -- I want to practice verb conjugation
+```
+
+If the orchestrator routes to **general**, the CLI prints the route and points you to the web app (`npm run server`) for open conversation.
+
+Direct shortcuts skip the orchestrator — `npm run lesson` always runs **identify-lesson-intent-agent**, `npm run exercises` always runs **identify-exercises-intent-agent**:
 
 ```bash
 npm run lesson                           # default: today's lesson
@@ -155,6 +176,8 @@ npm run lesson -- repeat yesterday's lesson
 npm run exercises                        # default: today's exercises
 npm run exercises -- show me last week's drills
 ```
+
+
 
 ### Cron job
 
@@ -173,7 +196,9 @@ npm run lint
 npm run lint:fix
 ```
 
-------
+---
+
+
 
 ## How routing works
 
@@ -202,13 +227,15 @@ flowchart TD
   Conversation --> Interests
 ```
 
+
+
 1. **identify-lesson-intent-agent** — figure out what the user wants regarding lessons, then retrieve or generate.
 2. **identify-exercises-intent-agent** — figure out what the user wants regarding exercises, then retrieve or generate.
 3. **General** — open conversation, language Q&A, email requests, etc. Handled by **general-conversation-agent**.
 
 **reception-orchestrator-agent** is a lightweight routing agent (no tools): one SDK call returns `general`, `lesson`, or `exercises`. Lesson and exercises paths then run their dedicated agents.
 
-**CLI** (`npm run lesson` / `npm run exercises`) and the **cron job** skip reception-orchestrator-agent — intent is fixed by which command or schedule runs.
+**CLI** (`npm run gio`) runs reception-orchestrator-agent first, then the routed agent. `npm run lesson` / `npm run exercises` and the **cron job** skip the orchestrator — intent is fixed by which command or schedule runs.
 
 The cron job checks the filesystem directly and calls the generator only when today's file is missing, avoiding an API call on every hourly tick.
 
@@ -216,7 +243,9 @@ Server logs include the full user prompt sent to OpenAI, prefixed with `[gio-sys
 
 After each lesson, exercises, or conversation turn completes, **interests-observer-agent** may append new topics to `interests.md` in the background.
 
-------
+---
+
+
 
 ## Interface
 
@@ -228,7 +257,9 @@ The history panel shows what you said or typed, tool actions that ran, and the a
 
 While recording, the live preview uses the browser's speech engine. After you release the mic, the server transcript comes from `gpt-4o-mini-transcribe` and may differ from the live preview.
 
-------
+---
+
+
 
 ## Agents
 
@@ -253,6 +284,10 @@ flowchart TD
   DiskCheck -->|no| GenFn
 ```
 
+
+
+
+
 ### Exercises — who calls which agent
 
 Same shape as lessons: identify agent for app/CLI, cron bypasses identify and reads disk first.
@@ -272,34 +307,42 @@ flowchart TD
   DiskCheck -->|no| GenFn
 ```
 
-| Agent | When it runs | Tools |
-|-------|--------------|-------|
-| **reception-orchestrator-agent** | App: first triage on every user message | |
-| **identify-lesson-intent-agent** | App (lesson route), CLI (`npm run lesson`) | - `retrieve_existing_lesson`<br>- `generate_new_lesson` |
-| **generate-lesson-agent** | When `generate_new_lesson` runs; cron if today's lesson file is missing | - `mark_study_plan_items`<br>- `send_email`* |
-| **identify-exercises-intent-agent** | App (exercises route), CLI (`npm run exercises`) | - `retrieve_existing_exercises`<br>- `generate_new_exercises` |
-| **generate-exercises-agent** | When `generate_new_exercises` runs; cron if today's exercises file is missing | - `mark_study_plan_items`<br>- `send_email`* |
-| **interests-observer-agent** | Background after each turn | - `save_interest` |
-| **general-conversation-agent** | App: general route (voice, text, images) | - Plugin tools from `plugins/` |
 
-* `send_email` only when SMTP is configured in `.env`.
 
-**CLI** skips reception-orchestrator-agent; **cron** skips reception-orchestrator-agent and calls the generator agents directly when files are missing.
+
+| Agent                               | When it runs                                                                  | Tools                                                      |
+| ----------------------------------- | ----------------------------------------------------------------------------- | ---------------------------------------------------------- |
+| **reception-orchestrator-agent**    | App: first triage on every user message                                       |                                                            |
+| **identify-lesson-intent-agent**    | App (lesson route), CLI (`npm run lesson`)                                    | - `retrieve_existing_lesson` - `generate_new_lesson`       |
+| **generate-lesson-agent**           | When `generate_new_lesson` runs; cron if today's lesson file is missing       | - `mark_study_plan_items` - `send_email`*                  |
+| **identify-exercises-intent-agent** | App (exercises route), CLI (`npm run exercises`)                              | - `retrieve_existing_exercises` - `generate_new_exercises` |
+| **generate-exercises-agent**        | When `generate_new_exercises` runs; cron if today's exercises file is missing | - `mark_study_plan_items` - `send_email`*                  |
+| **interests-observer-agent**        | Background after each turn                                                    | - `save_interest`                                          |
+| **general-conversation-agent**      | App: general route (voice, text, images)                                      | - Plugin tools from `plugins/`                             |
+
+
+- `send_email` only when SMTP is configured in `.env`.
+
+**CLI** (`npm run gio`) runs reception-orchestrator-agent first; `npm run lesson` / `npm run exercises` skip it. **Cron** skips the orchestrator and calls the generator agents directly when files are missing.
 
 ### Tool reference
 
-| Tool | Used by | Action |
-|------|---------|--------|
-| `retrieve_existing_lesson` | identify-lesson-intent-agent | Load a saved lesson file by date |
-| `generate_new_lesson` | identify-lesson-intent-agent | Starts **generate-lesson-agent** |
-| `retrieve_existing_exercises` | identify-exercises-intent-agent | Load saved exercises by date |
-| `generate_new_exercises` | identify-exercises-intent-agent | Starts **generate-exercises-agent** |
-| `mark_study_plan_items` | generate-lesson-agent, generate-exercises-agent | Check off covered study-plan entries |
-| `send_email` | generate-lesson-agent, generate-exercises-agent | Send email when the user asks during lesson/exercises generation |
-| `save_interest` | interests-observer-agent | Append a language-learning topic to `interests.md` |
-| Plugin tools | general-conversation-agent | Defined by each plugin under `plugins/` |
 
-------
+| Tool                          | Used by                                         | Action                                                           |
+| ----------------------------- | ----------------------------------------------- | ---------------------------------------------------------------- |
+| `retrieve_existing_lesson`    | identify-lesson-intent-agent                    | Load a saved lesson file by date                                 |
+| `generate_new_lesson`         | identify-lesson-intent-agent                    | Starts **generate-lesson-agent**                                 |
+| `retrieve_existing_exercises` | identify-exercises-intent-agent                 | Load saved exercises by date                                     |
+| `generate_new_exercises`      | identify-exercises-intent-agent                 | Starts **generate-exercises-agent**                              |
+| `mark_study_plan_items`       | generate-lesson-agent, generate-exercises-agent | Check off covered study-plan entries                             |
+| `send_email`                  | generate-lesson-agent, generate-exercises-agent | Send email when the user asks during lesson/exercises generation |
+| `save_interest`               | interests-observer-agent                        | Append a language-learning topic to `interests.md`               |
+| Plugin tools                  | general-conversation-agent                      | Defined by each plugin under `plugins/`                          |
+
+
+---
+
+
 
 ## Project structure
 
@@ -324,7 +367,7 @@ gio-system/
 │   └── websocket.ts         # WebSocket /ws (voice turns)
 ├── electron/                # Electron main process
 ├── lib/
-│   ├── invoke-agent.ts      # Run an agent with logging
+│   ├── ask-agent.ts         # askAgentAndLog — agent turn with logging
 │   ├── resolve-agent-output.ts # Parse retrieve/generate tool results
 │   ├── agent-tool-outputs.ts  # Extract tool payloads from agent traces
 │   ├── agent-run-trace.ts   # Token and tool-call logging per invocation
@@ -350,26 +393,32 @@ gio-system/
 
 The frontend uses Vue 3 and `vue3-sfc-loader` from a CDN — `.vue` files are compiled in the browser. Markdown rendering in the history panel uses `marked` and DOMPurify from CDN as well.
 
-------
+---
+
+
 
 ## Environment variables
 
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `OPENAI_API_KEY` | OpenAI API key | — |
-| `AGENT_CONTEXT_PATH` | Path to personal agent context markdown | `agent-context.md` |
-| `DISAMBIGUATION_PATH` | Path to speech disambiguation terms | `disambiguation.md` |
-| `SPEECH_PREVIEW` | Browser speech preview while recording (`false` to disable) | enabled |
-| `PLUGINS_DIR` | Folder for local plugins | `plugins` |
-| `PORT` | Express server port | `3001` |
-| `SMTP_HOST` | SMTP server hostname | — |
-| `SMTP_PORT` | SMTP port | `587` |
-| `SMTP_SECURE` | Use TLS (`true` / `false`) | `false` |
-| `SMTP_USER` | SMTP username | — |
-| `SMTP_PASS` | SMTP password or app password | — |
-| `SMTP_FROM` | From address (defaults to `SMTP_USER`) | — |
 
-------
+| Variable              | Description                                                 | Default             |
+| --------------------- | ----------------------------------------------------------- | ------------------- |
+| `OPENAI_API_KEY`      | OpenAI API key                                              | —                   |
+| `AGENT_CONTEXT_PATH`  | Path to personal agent context markdown                     | `agent-context.md`  |
+| `DISAMBIGUATION_PATH` | Path to speech disambiguation terms                         | `disambiguation.md` |
+| `SPEECH_PREVIEW`      | Browser speech preview while recording (`false` to disable) | enabled             |
+| `PLUGINS_DIR`         | Folder for local plugins                                    | `plugins`           |
+| `PORT`                | Express server port                                         | `3001`              |
+| `SMTP_HOST`           | SMTP server hostname                                        | —                   |
+| `SMTP_PORT`           | SMTP port                                                   | `587`               |
+| `SMTP_SECURE`         | Use TLS (`true` / `false`)                                  | `false`             |
+| `SMTP_USER`           | SMTP username                                               | —                   |
+| `SMTP_PASS`           | SMTP password or app password                               | —                   |
+| `SMTP_FROM`           | From address (defaults to `SMTP_USER`)                      | —                   |
+
+
+---
+
+
 
 ## Security
 
@@ -379,7 +428,9 @@ Plugins in `plugins/` are local TypeScript modules loaded at startup. Only insta
 
 Do not expose the server to the internet without proper authentication. Use it on `localhost` or a trusted network only.
 
-------
+---
+
+
 
 ## License
 

@@ -57,7 +57,7 @@ function formatTokenCount(count: number): string {
 }
 
 /** Imported in `conversation/session-manager.ts`. */
-export function logOpenAiRequest(contextLabel: string, agentName?: string): void {
+export function logOpenAiRequest(contextLabel: string, agentName?: string) {
   const agentSuffix = agentName ? ` (${agentName})` : '';
 
   console.log(
@@ -70,7 +70,7 @@ export function logOpenAiUsage(
   contextLabel: string,
   usage: OpenAiUsageSnapshot,
   options?: { prefix?: string; suffix?: string },
-): void {
+) {
   const prefix = options?.prefix ?? '';
   const suffix = options?.suffix ?? '';
   const requestsSuffix = usage.requests > 1 ? ` · ${usage.requests} requests` : '';
@@ -96,12 +96,12 @@ export function formatOpenAiUsageLine(
 }
 
 /** Imported in `conversation/session-manager.ts` and `lib/agent-run-trace.ts`. */
-export function logOpenAiThinking(): void {
+export function logOpenAiThinking() {
   console.log(styleText('dim', '🧠 Thinking...'));
 }
 
 /** Used in `lib/agent-run-trace.ts`. */
-export function logOpenAiResponseReceived(requestNumber: number): void {
+export function logOpenAiResponseReceived(requestNumber: number) {
   console.log(
     styleText('dim', `  ← OpenAI response received (request ${requestNumber})`),
   );

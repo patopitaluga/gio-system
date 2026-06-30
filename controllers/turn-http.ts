@@ -63,8 +63,7 @@ export function createTurnPostHandler(sessionManager: TurnSessionManager) {
           error: error instanceof Error ? error.message : 'Failed to process request',
         });
       } finally {
-        for (const filePath of tempPaths) 
-          unlinkSync(filePath);
+        for (const filePath of tempPaths) unlinkSync(filePath);
         
       }
     });

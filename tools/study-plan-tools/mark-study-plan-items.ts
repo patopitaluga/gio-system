@@ -44,25 +44,24 @@ function getToolCallName(item: RunItem): string | undefined {
   return undefined;
 }
 
-function ensureMarkStudyPlanToolUsed(result: { newItems: RunItem[] }, required: boolean): void {
+function ensureMarkStudyPlanToolUsed(result: { newItems: RunItem[] }, required: boolean) {
   const called = result.newItems.some(
     (item) => getToolCallName(item) === MARK_STUDY_PLAN_ITEMS_TOOL_NAME,
   );
 
   if (called) return;
 
-  if (required)
-    throw new Error(`Agent did not call required tool: ${MARK_STUDY_PLAN_ITEMS_TOOL_NAME}`);
+  if (required) throw new Error(`Agent did not call required tool: ${MARK_STUDY_PLAN_ITEMS_TOOL_NAME}`);
 
   console.warn(`[gio-system] Warning: ${MARK_STUDY_PLAN_ITEMS_TOOL_NAME} was not called.`);
 }
 
 /** Imported in `agent-lessons.ts`. */
-export function warnIfMarkStudyPlanToolMissing(result: { newItems: RunItem[] }): void {
+export function warnIfMarkStudyPlanToolMissing(result: { newItems: RunItem[] }) {
   ensureMarkStudyPlanToolUsed(result, false);
 }
 
 /** Imported in `agent-exercises.ts`. */
-export function assertMarkStudyPlanToolUsed(result: { newItems: RunItem[] }): void {
+export function assertMarkStudyPlanToolUsed(result: { newItems: RunItem[] }) {
   ensureMarkStudyPlanToolUsed(result, true);
 }

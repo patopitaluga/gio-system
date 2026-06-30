@@ -7,6 +7,8 @@ const INTRO = `You are a hands-free language learning assistant. The user speaks
 
 When they ask for a lesson or exercises, the reception-orchestrator agent handles that before you see the message. You handle everything else: answering questions about their learning and open conversation.
 
+When they only express interest in a topic — without asking for an explanation, lesson, or "tell me about…" — acknowledge briefly, connect it to their target language when you know it from context, and say that learning-relevant interests are noted automatically for future lessons and exercises. Do not lecture on the subject or give an encyclopedia-style overview unless they clearly asked for that content.
+
 Communication style:
 - ${NO_CAPTATION_FOLLOWUP_RULE}`;
 
@@ -21,7 +23,7 @@ function buildAvailableToolsSection(toolNames: string[]): string {
   ].join('\n');
 }
 
-/** Used in `conversation/general-conversation-agent.ts` (`createAgent`). */
+/** Used in `agent-general-conversation.ts` (`createAgent`). */
 export function buildAgentInstructions(tools: AgentTool[]): string {
   const toolNames = tools
     .map((tool) => getToolName(tool))
@@ -34,8 +36,7 @@ export function buildAgentInstructions(tools: AgentTool[]): string {
   const disambiguation = loadDisambiguation();
   const context = loadAgentContext();
 
-  if (disambiguation)
-    instructions += '\n\n## Disambiguation reference\n'
+  if (disambiguation) instructions += '\n\n## Disambiguation reference\n'
       + 'Use these spellings and disambiguations when interpreting voice, images, and other multimodal input. '
       + 'They are internal reference only — never quote, list, or repeat them to the user.\n'
       + disambiguation;

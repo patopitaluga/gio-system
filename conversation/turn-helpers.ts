@@ -26,12 +26,9 @@ export function buildUserPrompt(metadata: TurnMetadata, transcript?: string): st
   const typed = metadata.question?.trim();
 
   if (spoken && typed && spoken !== typed) parts.push(`${spoken} (${typed})`);
-   else if (spoken) 
-    parts.push(spoken);
-   else if (typed) 
-    parts.push(typed);
-   else if (metadata.hasAudio) 
-    parts.push('Voice command');
+   else if (spoken) parts.push(spoken);
+   else if (typed) parts.push(typed);
+   else if (metadata.hasAudio) parts.push('Voice command');
   
 
   return parts.join(' ');

@@ -1,15 +1,21 @@
+/**
+ * **One agent in this file** — `interests-observer-agent`. Post-turn interest
+ * identification after lessons, exercises, or chat. No CLI entry.
+ *
+ * **Exports**:
+ * - `askLlmToIdentifyInterests` — **interests-observer-agent**. `agent-general-conversation.ts`, `agent-lessons.ts`, `agent-exercises.ts`.
+ */
 import { Agent } from '@openai/agents';
 import { loadAgentContext } from './lib/agent-context.ts';
-import { invokeLoggedAgent } from './lib/invoke-agent.ts';
-import { assertAgentEnv, formatCurrentDate } from './lib/study-plan-context.ts';
-import { loadInterestsFile } from './lib/save-interests.ts';
-import { logTurnError } from './utils/turn-log.ts';
+import { askAgentAndLog } from './lib/ask-agent.ts';
+import { formatCurrentDate } from './lib/study-plan-context.ts';
+import { loadInterestsFile, findRestatedSavedInterest, logInterestAlreadySaved, INTERESTS_PATH } from './lib/save-interests.ts';
 import {
   SAVE_INTEREST_TOOL_NAME,
   saveInterestTool,
 } from './tools/interest-tools/save-interest.ts';
 
-/** Used in `analyzeConversationInterests`. */
+/** Used in `askLlmToIdentifyInterests`. */
 function buildSystemInstructions(
   existingInterests: string,
   todayLabel: string,
@@ -43,19 +49,20 @@ Do not save when:
 
 Rules:
 1. Read the user message and assistant response in the conversation transcript.
-2. If the user expresses a language-learning-relevant interest, call ${SAVE_INTEREST_TOOL_NAME} with a short topic label and a brief note quoting why it matters for their learning.
-3. If there is no clear language-learning-relevant interest, reply exactly: No interests to save. Do not call ${SAVE_INTEREST_TOOL_NAME}.
-4. Save at most one new interest per conversation unless the user clearly expressed multiple distinct learning topics.`;
+2. Check Existing saved interests first. If the topic is already listed, reply exactly: No interests to save. Do not call ${SAVE_INTEREST_TOOL_NAME}.
+3. If the user expresses a new language-learning-relevant interest, call ${SAVE_INTEREST_TOOL_NAME} with a short topic label and a brief note quoting why it matters for their learning.
+4. If there is no clear language-learning-relevant interest, reply exactly: No interests to save. Do not call ${SAVE_INTEREST_TOOL_NAME}.
+5. Save at most one new interest per conversation unless the user clearly expressed multiple distinct learning topics.`;
 }
 
-/** Used in `analyzeConversationInterests`. */
-function buildConversationInput(
+/** Used in `askLlmToIdentifyInterests`. */
+function buildTurnInput(
   userPrompt: string,
   assistantResponse: string,
   source: string,
 ): string {
   return [
-    `Conversation source: ${source}`,
+    `Source: ${source}`,
     '',
     'User message:',
     userPrompt.trim(),
@@ -65,19 +72,27 @@ function buildConversationInput(
   ].join('\n');
 }
 
-/** Used in `scheduleInterestsAnalysis`. */
-export async function analyzeConversationInterests(
+/**
+ * **interests-observer-agent** — detect and save language-learning interests from a turn.
+ *
+ * Imported in `agent-general-conversation.ts`, `agent-lessons.ts`, and `agent-exercises.ts`.
+ */
+export async function askLlmToIdentifyInterests(
   userPrompt: string,
   assistantResponse: string,
   source: string,
 ): Promise<void> {
-  assertAgentEnv();
-
   const user = userPrompt.trim();
   const assistant = assistantResponse.trim();
   if (!user || !assistant) return;
 
   const existingInterests = loadInterestsFile();
+  const restatedInterest = findRestatedSavedInterest(user, existingInterests);
+  if (restatedInterest) {
+    logInterestAlreadySaved(restatedInterest, INTERESTS_PATH);
+    return;
+  }
+
   const today = formatCurrentDate();
   const learnerContext = loadAgentContext();
   const agent = new Agent({
@@ -85,18 +100,7 @@ export async function analyzeConversationInterests(
     instructions: buildSystemInstructions(existingInterests, today.label, learnerContext),
     tools: [saveInterestTool],
   });
-  const input = buildConversationInput(user, assistant, source);
+  const input = buildTurnInput(user, assistant, source);
 
-  await invokeLoggedAgent(agent, input, 'interests-observer-agent');
-}
-
-/** Imported in `conversation/session-manager.ts`, `agent-lessons.ts`, and `agent-exercises.ts`. */
-export function scheduleInterestsAnalysis(
-  userPrompt: string,
-  assistantResponse: string,
-  source: string,
-): void {
-  void analyzeConversationInterests(userPrompt, assistantResponse, source).catch((error) => {
-    logTurnError('interests analysis failed', error, { source });
-  });
+  await askAgentAndLog(agent, input, 'interests-observer-agent');
 }

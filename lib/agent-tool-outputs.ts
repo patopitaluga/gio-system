@@ -62,8 +62,7 @@ function parseToolJsonOutput<T>(
   output: unknown,
   parse: (value: unknown) => T | undefined,
 ): T | undefined {
-  if (typeof output === 'string') 
-    try {
+  if (typeof output === 'string') try {
       return parse(JSON.parse(output));
     } catch {
       return undefined;

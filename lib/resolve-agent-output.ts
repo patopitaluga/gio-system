@@ -49,9 +49,7 @@ export function resolveAgentOutput(
     parseRetrieveResult,
   );
 
-  for (const retrieve of retrieveResults)
-    if (retrieve.found && retrieve.markdown)
-      return {
+  for (const retrieve of retrieveResults) if (retrieve.found && retrieve.markdown) return {
         markdown: retrieve.markdown,
         savedPath: retrieve.savedPath ?? '',
         emailed: false,
@@ -65,8 +63,7 @@ export function resolveAgentOutput(
   );
   const generated = generateResults.at(-1);
 
-  if (generated)
-    return {
+  if (generated) return {
       markdown: generated.markdown,
       savedPath: generated.savedPath,
       emailed: generated.emailed,
@@ -75,8 +72,7 @@ export function resolveAgentOutput(
 
   const message = result.finalOutput?.trim();
 
-  if (message)
-    return {
+  if (message) return {
       markdown: message,
       savedPath: '',
       emailed: false,
