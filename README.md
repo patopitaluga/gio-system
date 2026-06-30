@@ -234,6 +234,44 @@ While recording, the live preview uses the browser's speech engine. After you re
 
 Lessons and exercises each use two agents with different jobs: one identifies intent and retrieves or triggers generation (**identify-lesson-intent-agent** / **identify-exercises-intent-agent**), another writes new content from the study plan (**generate-lesson-agent** / **generate-exercises-agent**). A retrieve-only turn never calls the generator. The cron job calls the generator directly when today's file is missing.
 
+### Lessons — who calls which agent
+
+**App** (after reception routes to `lesson`), **CLI** (`npm run lesson`), and **cron** each enter at a different point. Only the identify agent uses the `generate_new_lesson` tool; cron skips it and calls the generator function directly when today's file is missing.
+
+```mermaid
+flowchart TD
+  AppCLI["App / CLI"] --> Identify["identify-lesson-intent-agent"]
+  Identify --> Retrieve["retrieve_existing_lesson"]
+  Identify --> GenTool["generate_new_lesson"]
+  Retrieve --> Disk[(lessons/ on disk)]
+  GenTool --> GenFn["askLlmToGenerateLesson"]
+  GenFn --> GenAgent["generate-lesson-agent"]
+  GenAgent --> Disk
+
+  Cron["Cron"] --> DiskCheck{Today's file exists?}
+  DiskCheck -->|yes| Email["sendLessonByEmail"]
+  DiskCheck -->|no| GenFn
+```
+
+### Exercises — who calls which agent
+
+Same shape as lessons: identify agent for app/CLI, cron bypasses identify and reads disk first.
+
+```mermaid
+flowchart TD
+  AppCLI["App / CLI"] --> Identify["identify-exercises-intent-agent"]
+  Identify --> Retrieve["retrieve_existing_exercises"]
+  Identify --> GenTool["generate_new_exercises"]
+  Retrieve --> Disk[(exercises/ on disk)]
+  GenTool --> GenFn["askLlmToGenerateExercises"]
+  GenFn --> GenAgent["generate-exercises-agent"]
+  GenAgent --> Disk
+
+  Cron["Cron"] --> DiskCheck{Today's file exists?}
+  DiskCheck -->|yes| Email["sendExercisesByEmail"]
+  DiskCheck -->|no| GenFn
+```
+
 | Agent | When it runs | Tools |
 |-------|--------------|-------|
 | **reception-orchestrator-agent** | App: first triage on every user message | |
