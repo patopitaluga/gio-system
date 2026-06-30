@@ -11,6 +11,7 @@ import {
   csrfTokenHandler,
   parseCookies,
 } from './middleware/csrf.ts';
+import { PRONUNCIATIONS_DIR } from './lib/synthesize-pronunciation.ts';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -36,6 +37,7 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) { // is running by cli c
 
   app.use(express.static('public'));
   app.use('/components', express.static('components'));
+  app.use('/pronunciations', express.static(PRONUNCIATIONS_DIR));
 
   app.get('/', (req, res) => {
     res.sendFile(path.resolve(__dirname, './views/index.html'));

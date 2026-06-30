@@ -23,6 +23,7 @@ import { NO_CAPTATION_FOLLOWUP_RULE } from './lib/prompt-rules.ts';
 import { resolveAgentOutput, type AgentLoopResult } from './lib/resolve-agent-output.ts';
 import { listStudyOutputDates } from './lib/save-study-output.ts';
 import { askLlmToIdentifyInterests } from './agent-interests.ts';
+import { askLlmToIdentifyShortcomings } from './agent-shortcomings.ts';
 import { logTurnError } from './utils/turn-log.ts';
 import { createGenerateNewExercisesTool } from './tools/study-output-tools/generate-study-output-tool.ts';
 import { retrieveExistingExercisesTool } from './tools/study-output-tools/retrieve-existing-study-output.ts';
@@ -102,6 +103,9 @@ export async function askLlmToIdentifyExercisesIntent(userPrompt: string): Promi
   );
   askLlmToIdentifyInterests(prompt, output.markdown, 'exercises').catch((error) => {
     logTurnError('interests identification failed', error, { source: 'exercises' });
+  });
+  askLlmToIdentifyShortcomings(prompt, output.markdown, 'exercises').catch((error) => {
+    logTurnError('shortcomings identification failed', error, { source: 'exercises' });
   });
 
   return output;

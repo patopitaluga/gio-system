@@ -8,8 +8,8 @@
  * conversation assistant (`gpt-realtime-1.5` via the OpenAI Realtime API).
  *
  * Flow per turn:
- * 1. **reception-orchestrator-agent** — `askLlmToIdentifyRelevantAgent()` returns general, lesson, or exercises (no tools).
- * 2. **Lesson / exercises agents** — retrieve or generate when routed; conversation assistant handles general.
+ * 1. **reception-orchestrator-agent** — `askLlmToIdentifyRelevantAgent()` returns general, lesson, exercises, or vocabulary (no tools).
+ * 2. **Lesson / exercises / vocabulary agents** — handle routed turns; conversation assistant handles general.
  *
  * @see {@link https://openai.github.io/openai-agents-js/guides/multi-agent/ | Agent orchestration (SDK)}
  * @see ../agent-reception-orchestrator.ts — unified routing
@@ -41,6 +41,7 @@ import {
 import { askLlmToIdentifyRelevantAgent, RelevantAgent } from '../agent-reception-orchestrator.ts';
 import { askLlmToIdentifyLessonIntent } from '../agent-lessons.ts';
 import { askLlmToIdentifyExercisesIntent } from '../agent-exercises.ts';
+import { askLlmToShowVocabulary } from '../agent-vocabulary.ts';
 import { afterGeneralConversationReply, createAgent, createSessionConfig } from '../agent-general-conversation.ts';
 import {
   buildUserPrompt,
@@ -95,7 +96,9 @@ export class TurnSessionManager {
 
     const result = relevantAgent === RelevantAgent.Lesson
       ? await askLlmToIdentifyLessonIntent(userMessage)
-      : await askLlmToIdentifyExercisesIntent(userMessage);
+      : relevantAgent === RelevantAgent.Exercises
+        ? await askLlmToIdentifyExercisesIntent(userMessage)
+        : await askLlmToShowVocabulary(userMessage);
 
     logTurn('reception-orchestrator-agent identified relevant agent', {
       relevantAgent,

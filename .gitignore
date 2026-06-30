@@ -1,6 +1,6 @@
 node_modules
 .env
-agent-context.md
+student-context.md
 disambiguation.md
 plugins/
 .cursor/
@@ -12,3 +12,6 @@ temp-uploads/
 
 study-plan.md
 interests.md
+shortcomings.md
+news/
+pronunciations/

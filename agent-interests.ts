@@ -3,10 +3,10 @@
  * identification after lessons, exercises, or chat. No CLI entry.
  *
  * **Exports**:
- * - `askLlmToIdentifyInterests` — **interests-observer-agent**. `agent-general-conversation.ts`, `agent-lessons.ts`, `agent-exercises.ts`.
+ * - `askLlmToIdentifyInterests` — **interests-observer-agent**. `agent-general-conversation.ts`, `agent-lessons.ts`, `agent-exercises.ts`, `agent-vocabulary.ts`.
  */
 import { Agent } from '@openai/agents';
-import { loadAgentContext } from './lib/agent-context.ts';
+import { loadStudentContext } from './lib/student-context.ts';
 import { askAgentAndLog } from './lib/ask-agent.ts';
 import { formatCurrentDate } from './lib/study-plan-context.ts';
 import { loadInterestsFile, findRestatedSavedInterest, logInterestAlreadySaved, INTERESTS_PATH } from './lib/save-interests.ts';
@@ -19,11 +19,11 @@ import {
 function buildSystemInstructions(
   existingInterests: string,
   todayLabel: string,
-  learnerContext: string,
+  studentContext: string,
 ): string {
   const savedList = existingInterests.trim() || '(none yet)';
-  const contextBlock = learnerContext
-    ? `\nLearner and language context (infer target language, level, and goals from this):\n---\n${learnerContext}\n---\n`
+  const contextBlock = studentContext
+    ? `\nStudent and language context (infer target language, level, and goals from this):\n---\n${studentContext}\n---\n`
     : '';
 
   return `You are part of Gio-System, a personal language-learning assistant. Your job runs after other agents (lessons, exercises, or conversation) finish a turn.
@@ -75,7 +75,7 @@ function buildTurnInput(
 /**
  * **interests-observer-agent** — detect and save language-learning interests from a turn.
  *
- * Imported in `agent-general-conversation.ts`, `agent-lessons.ts`, and `agent-exercises.ts`.
+ * Imported in `agent-general-conversation.ts`, `agent-lessons.ts`, `agent-exercises.ts`, and `agent-vocabulary.ts`.
  */
 export async function askLlmToIdentifyInterests(
   userPrompt: string,
@@ -94,10 +94,10 @@ export async function askLlmToIdentifyInterests(
   }
 
   const today = formatCurrentDate();
-  const learnerContext = loadAgentContext();
+  const studentContext = loadStudentContext();
   const agent = new Agent({
     name: 'interests-observer-agent',
-    instructions: buildSystemInstructions(existingInterests, today.label, learnerContext),
+    instructions: buildSystemInstructions(existingInterests, today.label, studentContext),
     tools: [saveInterestTool],
   });
   const input = buildTurnInput(user, assistant, source);

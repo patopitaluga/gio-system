@@ -7,11 +7,12 @@
  * - `createAgent` — builds the Realtime agent; imported in `conversation/session-manager.ts`
  * - `createSessionConfig` — Realtime API transport/model/audio options for the same session
  * - `askLlmToGeneralConversation` — text CLI path; imported in `agent-reception-orchestrator.ts`
- * - `afterGeneralConversationReply` — post-reply interests; imported in `conversation/session-manager.ts` and `agent-reception-orchestrator.ts`
+ * - `afterGeneralConversationReply` — post-reply observers; imported in `conversation/session-manager.ts` and `agent-reception-orchestrator.ts`
  */
 import { Agent } from '@openai/agents';
 import { RealtimeAgent as ConversationAgent } from '@openai/agents/realtime';
 import { askLlmToIdentifyInterests } from './agent-interests.ts';
+import { askLlmToIdentifyShortcomings } from './agent-shortcomings.ts';
 import { askAgentAndLog } from './lib/ask-agent.ts';
 import { buildTranscriptionPrompt } from './lib/disambiguation.ts';
 import { logTurnError } from './utils/turn-log.ts';
@@ -20,8 +21,11 @@ import type { AgentTool } from './lib/tools.ts';
 
 /** Imported in `conversation/session-manager.ts` (`finish`) and `agent-reception-orchestrator.ts` (`gioCli`). */
 export function afterGeneralConversationReply(userPrompt: string, assistantResponse: string) {
-  return askLlmToIdentifyInterests(userPrompt, assistantResponse, 'conversation').catch((error) => {
+  askLlmToIdentifyInterests(userPrompt, assistantResponse, 'conversation').catch((error) => {
     logTurnError('interests identification failed', error, { source: 'conversation' });
+  });
+  askLlmToIdentifyShortcomings(userPrompt, assistantResponse, 'conversation').catch((error) => {
+    logTurnError('shortcomings identification failed', error, { source: 'conversation' });
   });
 }
 

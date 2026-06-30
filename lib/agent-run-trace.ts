@@ -80,6 +80,19 @@ export function summarizeToolArgsForLog(
         topic: args.topic,
         note: typeof args.note === 'string' ? truncate(args.note, 120) : args.note,
       };
+    case 'save_shortcoming':
+      return {
+        kind: args.kind,
+        topic: args.topic,
+        note: typeof args.note === 'string' ? truncate(args.note, 120) : args.note,
+      };
+    case 'speak_pronunciation':
+      return {
+        text: typeof args.text === 'string' ? truncate(args.text, 80) : args.text,
+        filenameSlug: args.filenameSlug,
+      };
+    case 'web_search':
+      return {};
     default:
       return args;
   }
@@ -126,6 +139,36 @@ export function summarizeToolResultForLog(toolName: string, result: string): str
   } catch {
     return truncate(result, 240);
   }
+
+  if (toolName === 'save_shortcoming') try {
+    const parsed = JSON.parse(result) as {
+      saved?: boolean;
+      duplicate?: boolean;
+      kind?: string;
+      topic?: string;
+      savedPath?: string;
+    };
+
+    if (parsed.duplicate) return `duplicate · ${parsed.kind ?? '?'}:${parsed.topic ?? '?'}`;
+    if (parsed.saved) return `saved · ${parsed.kind ?? '?'}:${parsed.topic ?? '?'} → ${parsed.savedPath ?? '?'}`;
+
+    return truncate(result, 240);
+  } catch {
+    return truncate(result, 240);
+  }
+
+  if (toolName === 'speak_pronunciation') try {
+    const parsed = JSON.parse(result) as {
+      text?: string;
+      audioUrl?: string;
+    };
+
+    return `audio · ${parsed.text ?? '?'} → ${parsed.audioUrl ?? '?'}`;
+  } catch {
+    return truncate(result, 240);
+  }
+
+  if (toolName === 'web_search') return 'web search (hosted)';
 
   return truncate(result, 240);
 }

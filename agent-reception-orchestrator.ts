@@ -5,13 +5,14 @@
  *
  * **Exports**:
  * - `askLlmToIdentifyRelevantAgent` — **reception-orchestrator-agent**; imported in `conversation/session-manager.ts`
- * - `RelevantAgent` — `general` | `lesson` | `exercises`
+ * - `RelevantAgent` — `general` | `lesson` | `exercises` | `vocabulary`
  * - `resolveRelevantAgent` — parse agent output; used in tests
  */
 import { Agent } from '@openai/agents';
 import { fileURLToPath } from 'url';
 import { askLlmToIdentifyLessonIntent } from './agent-lessons.ts';
 import { askLlmToIdentifyExercisesIntent } from './agent-exercises.ts';
+import { askLlmToShowVocabulary } from './agent-vocabulary.ts';
 import {
   afterGeneralConversationReply,
   askLlmToGeneralConversation,
@@ -26,6 +27,7 @@ export const RelevantAgent = {
   General: 'general',
   Lesson: 'lesson',
   Exercises: 'exercises',
+  Vocabulary: 'vocabulary',
 } as const;
 
 export type RelevantAgent = (typeof RelevantAgent)[keyof typeof RelevantAgent];
@@ -33,9 +35,10 @@ export type RelevantAgent = (typeof RelevantAgent)[keyof typeof RelevantAgent];
 /** Used in `createReceptionOrchestratorAgent`. */
 function buildReceptionOrchestratorInstructions(): string {
   return `You are Gio-System's reception-orchestrator agent — the first step for every user message: identify which agent should handle it. Reply with ONLY one word — no punctuation, no explanation:
-- "${RelevantAgent.General}" — general conversation, language Q&A, email, or anything that is NOT specifically requesting lesson or exercises content.
+- "${RelevantAgent.General}" — general conversation, language Q&A, email, or anything that is NOT specifically requesting lesson, exercises, or vocabulary content.
 - "${RelevantAgent.Lesson}" — the user wants lesson content (study theory, learn, review, or repeat a saved lesson, teaching content).
 - "${RelevantAgent.Exercises}" — the user wants exercises (practice, drills, activities). Repeat or review exercises is exercises; repeat or review a lesson is lesson, not exercises.
+- "${RelevantAgent.Vocabulary}" — the user wants a vocabulary list, word list, pronunciation, IPA, or terms for a topic (not a full lesson or exercise set).
 
 ${NO_CAPTATION_FOLLOWUP_RULE}`;
 }
@@ -58,12 +61,13 @@ export function resolveRelevantAgent(
   if (reply === RelevantAgent.General) return RelevantAgent.General;
   if (reply === RelevantAgent.Lesson) return RelevantAgent.Lesson;
   if (reply === RelevantAgent.Exercises) return RelevantAgent.Exercises;
+  if (reply === RelevantAgent.Vocabulary) return RelevantAgent.Vocabulary;
 
   throw new Error(`reception-orchestrator-agent did not produce a valid relevant agent: ${JSON.stringify(result.finalOutput)}`);
 }
 
 /**
- * **reception-orchestrator-agent** — identify the relevant agent: `general`, `lesson`, or `exercises`.
+ * **reception-orchestrator-agent** — identify the relevant agent: `general`, `lesson`, `exercises`, or `vocabulary`.
  *
  * Imported in `conversation/session-manager.ts` and CLI (`npm run gio` via `gioCli`).
  */
@@ -101,10 +105,15 @@ async function gioCli(prompt: string) {
 
   const result = relevantAgent === RelevantAgent.Lesson
     ? await askLlmToIdentifyLessonIntent(prompt)
-    : await askLlmToIdentifyExercisesIntent(prompt);
-  const kind = relevantAgent === RelevantAgent.Lesson ? 'lessons' : 'exercises';
+    : relevantAgent === RelevantAgent.Exercises
+      ? await askLlmToIdentifyExercisesIntent(prompt)
+      : await askLlmToShowVocabulary(prompt);
 
-  logStudyOutputStatus(kind, result.source, result.savedPath);
+  if (relevantAgent === RelevantAgent.Lesson || relevantAgent === RelevantAgent.Exercises) {
+    const kind = relevantAgent === RelevantAgent.Lesson ? 'lessons' : 'exercises';
+    logStudyOutputStatus(kind, result.source, result.savedPath);
+  }
+
   console.log(`relevant agent: ${relevantAgent}`);
   console.log(result.markdown);
   if (result.emailed) console.log('Emailed via send_email tool.');

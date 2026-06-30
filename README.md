@@ -39,7 +39,7 @@ The app combines a multimodal **conversation assistant** (voice, text, and image
 ```bash
 npm install
 cp .env.example .env
-cp agent-context.example.md agent-context.md
+cp student-context.example.md student-context.md
 cp disambiguation.example.md disambiguation.md
 ```
 
@@ -51,7 +51,7 @@ Edit `.env` and set at least your API key:
 OPENAI_API_KEY=sk-...
 ```
 
-Restart the server after changing `.env`, `agent-context.md`, `disambiguation.md`, `study-plan.md`, or plugins under `plugins/`.
+Restart the server after changing `.env`, `student-context.md`, `disambiguation.md`, `study-plan.md`, or plugins under `plugins/`.
 
 Run tests (live OpenAI calls on every run — uses tokens; needs `OPENAI_API_KEY` in `.env`):
 
@@ -80,13 +80,13 @@ Generated content is saved under:
 
 Both folders are gitignored.
 
-### Agent context
+### Student context
 
-Copy `agent-context.example.md` to `agent-context.md` (gitignored) and edit it for your learning profile: native language, target language, level, goals, and how you want the tutor to behave.
+Copy `student-context.example.md` to `student-context.md` (gitignored) and edit it for your learning profile: native language, target language, level, goals, and how you want the tutor to behave.
 
 The file is appended to the conversation assistant's instructions and also informs **interests-observer-agent** after each turn.
 
-Optional: set `AGENT_CONTEXT_PATH` in `.env` to use a different file.
+Optional: set `STUDENT_CONTEXT_PATH` in `.env` to use a different file.
 
 ### Disambiguation
 
@@ -105,13 +105,21 @@ Optional: set `DISAMBIGUATION_PATH` in `.env` to use a different file.
 
 After lesson, exercises, or conversation turns, a background agent may append language-learning topics you expressed interest in to `interests.md` (gitignored). Use this as a running list of themes to revisit in future lessons or conversation.
 
-The observer reads `agent-context.md` to infer your target language and goals, and skips duplicates already in the file.
+The observer reads `student-context.md` to infer your target language and goals, and skips duplicates already in the file.
+
+### Shortcomings and opportunities
+
+After the same turns, **shortcomings-observer-agent** may append mistakes and practice gaps to `shortcomings.md` (gitignored). Each entry is tagged **shortcoming** (a clear error) or **opportunity** (a gap worth revisiting). Use this file as memory for future lessons and tutoring focus.
 
 ### Email delivery
 
-When SMTP is configured in `.env`, the system can send lessons and exercises by email — from the UI (when you ask), from CLI scripts, and from the cron job.
+When SMTP is configured in `.env`, the system can send lessons, exercises, and the daily news digest by email — from the UI (when you ask), from CLI scripts, and from the cron job.
 
-See [Environment variables](#environment-variables) for SMTP settings.
+Set `NEWS_NEWSPAPER_URL` to the homepage of a newspaper to enable **news-agent** in the cron job (9:00 local, same as lessons and exercises). It reads `interests.md` and `student-context.md`, uses OpenAI **web search** (scoped to that site's domain) to find **one** uplifting article, **rewrites** it as graded reading in the **target language** (not a native-language summary), saves it under `news/YYYY-MM-DD.md`, and emails it.
+
+Manual run: `npm run news`
+
+See [Environment variables](#environment-variables) for SMTP and news settings.
 
 ### Plugins
 
@@ -217,6 +225,7 @@ flowchart TD
   Exercises[identify-exercises-intent-agent]
   Conversation[general-conversation-agent]
   Interests[interests-observer-agent]
+  Shortcomings[shortcomings-observer-agent]
 
   User --> Orch
   Orch -->|lesson| Lesson
@@ -225,6 +234,9 @@ flowchart TD
   Lesson --> Interests
   Exercises --> Interests
   Conversation --> Interests
+  Lesson --> Shortcomings
+  Exercises --> Shortcomings
+  Conversation --> Shortcomings
 ```
 
 
@@ -241,7 +253,7 @@ The cron job checks the filesystem directly and calls the generator only when to
 
 Server logs include the full user prompt sent to OpenAI, prefixed with `[gio-system:prompt]`.
 
-After each lesson, exercises, or conversation turn completes, **interests-observer-agent** may append new topics to `interests.md` in the background.
+After each lesson, exercises, or conversation turn completes, **interests-observer-agent** may append new topics to `interests.md` and **shortcomings-observer-agent** may append mistakes and opportunities to `shortcomings.md`, both in the background.
 
 ---
 
@@ -318,6 +330,8 @@ flowchart TD
 | **identify-exercises-intent-agent** | App (exercises route), CLI (`npm run exercises`)                              | - `retrieve_existing_exercises` - `generate_new_exercises` |
 | **generate-exercises-agent**        | When `generate_new_exercises` runs; cron if today's exercises file is missing | - `mark_study_plan_items` - `send_email`*                  |
 | **interests-observer-agent**        | Background after each turn                                                    | - `save_interest`                                          |
+| **shortcomings-observer-agent**     | Background after each turn                                                    | - `save_shortcoming`                                       |
+| **news-agent**                      | Cron (when `NEWS_NEWSPAPER_URL` set), CLI (`npm run news`)                    | - `web_search` (hosted)                                    |
 | **general-conversation-agent**      | App: general route (voice, text, images)                                      | - Plugin tools from `plugins/`                             |
 
 
@@ -337,6 +351,9 @@ flowchart TD
 | `mark_study_plan_items`       | generate-lesson-agent, generate-exercises-agent | Check off covered study-plan entries                             |
 | `send_email`                  | generate-lesson-agent, generate-exercises-agent | Send email when the user asks during lesson/exercises generation |
 | `save_interest`               | interests-observer-agent                        | Append a language-learning topic to `interests.md`               |
+| `save_shortcoming`            | shortcomings-observer-agent                     | Append a mistake or practice opportunity to `shortcomings.md`    |
+| `fetch_web_page`              | — (reserved; see `lib/fetch-web-page.ts` for non-OpenAI providers) | Local HTTP fetch alternative to hosted `web_search`              |
+| `web_search`                  | news-agent                                      | Hosted OpenAI web search, scoped to the newspaper domain         |
 | Plugin tools                  | general-conversation-agent                      | Defined by each plugin under `plugins/`                          |
 
 
@@ -352,12 +369,16 @@ gio-system/
 ├── agent-lessons.ts         # identify-lesson-intent-agent, generate-lesson-agent, CLI entry
 ├── agent-exercises.ts       # identify-exercises-intent-agent, generate-exercises-agent, CLI entry
 ├── agent-interests.ts       # interests-observer-agent (background after each turn)
-├── agent-context.example.md # Template for agent-context.md
+├── agent-shortcomings.ts    # shortcomings-observer-agent (background after each turn)
+├── agent-news.ts            # news-agent (cron + npm run news)
+├── student-context.example.md # Template for student-context.md
 ├── disambiguation.example.md # Template for disambiguation.md
 ├── cronjob.ts               # Lesson/exercises email scheduler (9:00 local)
 ├── server.ts                # Express server
 ├── study-plan.md            # Your curriculum (gitignored)
 ├── interests.md             # Saved learning topics (gitignored)
+├── shortcomings.md          # Saved mistakes and practice gaps (gitignored)
+├── news/                    # Saved daily news digests (gitignored)
 ├── lessons/                 # Saved lessons by date (gitignored)
 ├── exercises/               # Saved exercises by date (gitignored)
 ├── components/              # Vue UI (loaded at runtime, no bundler)
@@ -371,18 +392,22 @@ gio-system/
 │   ├── resolve-agent-output.ts # Parse retrieve/generate tool results
 │   ├── agent-tool-outputs.ts  # Extract tool payloads from agent traces
 │   ├── agent-run-trace.ts   # Token and tool-call logging per invocation
-│   ├── agent-context.ts     # Loader for agent-context.md
+│   ├── student-context.ts     # Loader for student-context.md
 │   ├── disambiguation.ts    # Loader for disambiguation.md
 │   ├── plugins.ts           # Loader for plugins/
 │   ├── tools.ts             # Conversation tool types and helpers
 │   ├── workspace.ts         # Project root path
 │   ├── save-study-output.ts # Read/write dated lesson and exercise files
 │   ├── save-interests.ts    # Read/write interests.md
+│   ├── save-shortcomings.ts # Read/write shortcomings.md
+│   ├── save-news-output.ts  # Read/write news/YYYY-MM-DD.md
+│   ├── fetch-web-page.ts  # Local URL fetch (fallback if LLM provider changes)
 │   └── study-plan-*.ts      # Study plan loading and marking
 ├── public/                  # Static assets (CSS, speech preview script)
 ├── tools/
 │   ├── communication-tools/ # send_email
 │   ├── interest-tools/      # save_interest (used by interests-observer-agent)
+│   ├── shortcoming-tools/   # save_shortcoming (used by shortcomings-observer-agent)
 │   ├── study-output-tools/  # retrieve / generate lesson & exercises
 │   └── study-plan-tools/    # mark_study_plan_items
 ├── plugins.example/         # Sample plugin (copy into gitignored plugins/)
@@ -403,7 +428,7 @@ The frontend uses Vue 3 and `vue3-sfc-loader` from a CDN — `.vue` files are co
 | Variable              | Description                                                 | Default             |
 | --------------------- | ----------------------------------------------------------- | ------------------- |
 | `OPENAI_API_KEY`      | OpenAI API key                                              | —                   |
-| `AGENT_CONTEXT_PATH`  | Path to personal agent context markdown                     | `agent-context.md`  |
+| `STUDENT_CONTEXT_PATH`  | Path to personal student context markdown                     | `student-context.md`  |
 | `DISAMBIGUATION_PATH` | Path to speech disambiguation terms                         | `disambiguation.md` |
 | `SPEECH_PREVIEW`      | Browser speech preview while recording (`false` to disable) | enabled             |
 | `PLUGINS_DIR`         | Folder for local plugins                                    | `plugins`           |
@@ -414,6 +439,7 @@ The frontend uses Vue 3 and `vue3-sfc-loader` from a CDN — `.vue` files are co
 | `SMTP_USER`           | SMTP username                                               | —                   |
 | `SMTP_PASS`           | SMTP password or app password                               | —                   |
 | `SMTP_FROM`           | From address (defaults to `SMTP_USER`)                      | —                   |
+| `NEWS_NEWSPAPER_URL`  | Newspaper homepage for daily news cron (`news-agent`)       | — (cron job off)    |
 
 
 ---

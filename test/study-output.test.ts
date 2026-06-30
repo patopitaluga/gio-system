@@ -244,6 +244,13 @@ describe('study output orchestrator', () => {
       );
     });
 
+    it('returns vocabulary for a vocabulary reply', () => {
+      assert.equal(
+        resolveRelevantAgent({ finalOutput: RelevantAgent.Vocabulary }),
+        RelevantAgent.Vocabulary,
+      );
+    });
+
     it('throws for an invalid relevant-agent reply', () => {
       assert.throws(
         () => resolveRelevantAgent({ finalOutput: 'maybe lesson?' }),

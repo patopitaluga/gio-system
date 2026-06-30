@@ -4,9 +4,11 @@ import {
   sendExercisesByEmail,
 } from './agent-exercises.ts';
 import { askLlmToGenerateLesson, sendLessonByEmail } from './agent-lessons.ts';
+import { askLlmToCurateNews, sendNewsByEmail } from './agent-news.ts';
 import { formatCurrentDate, formatLocalDateIso } from './lib/study-plan-context.ts';
 import { readPreviousExercise, readPreviousLesson } from './lib/save-study-output.ts';
 import { logStudyOutputStatus } from './lib/log-study-output-status.ts';
+import { logNewsOutputStatus, readPreviousNews } from './lib/save-news-output.ts';
 
 if (!process.env.OPENAI_API_KEY?.trim()) throw new Error('OPENAI_API_KEY is not set');
 
@@ -63,7 +65,28 @@ export const EXERCISES_SCHEDULE: CronSchedule = {
   },
 };
 
-const SCHEDULES = [LESSON_SCHEDULE, EXERCISES_SCHEDULE];
+/** Used in `cronjob.ts` (`SCHEDULES`). Enabled when `NEWS_NEWSPAPER_URL` is set in `.env`. */
+export const NEWS_SCHEDULE: CronSchedule = {
+  id: 'news',
+  label: 'News',
+  hour: 9,
+  enabled: Boolean(process.env.NEWS_NEWSPAPER_URL?.trim()),
+  run: async () => {
+    const today = formatCurrentDate();
+    const existing = readPreviousNews(today.iso);
+
+    if (existing) {
+      logNewsOutputStatus('archive', existing.savedPath, { prefix: '[cronjob] ' });
+      return sendNewsByEmail(existing.markdown);
+    }
+
+    const { markdown, savedPath, source } = await askLlmToCurateNews();
+    logNewsOutputStatus(source, savedPath, { prefix: '[cronjob] ' });
+    return sendNewsByEmail(markdown);
+  },
+};
+
+const SCHEDULES = [LESSON_SCHEDULE, EXERCISES_SCHEDULE, NEWS_SCHEDULE];
 const lastRunBySchedule = new Map<string, string>();
 
 function todayKey(): string {
@@ -119,8 +142,8 @@ console.log('[cronjob] Active schedules:', SCHEDULES.filter((s) => s.enabled).ma
  * | weekday | *     | every day of week    |
  *
  * Runs once per hour at **:00** (1:00, 2:00, …, 9:00, etc.).
- * `checkSchedules()` then decides whether `LESSON_SCHEDULE` / `EXERCISES_SCHEDULE`
- * should run (both target hour 9, once per day).
+ * `checkSchedules()` then decides whether `LESSON_SCHEDULE` / `EXERCISES_SCHEDULE` / `NEWS_SCHEDULE`
+ * should run (all target hour 9, once per day; news runs only when `NEWS_NEWSPAPER_URL` is set).
  */
 cron.schedule('0 * * * *', () => {
   checkSchedules();

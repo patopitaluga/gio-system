@@ -12,6 +12,8 @@
     "gio": "sh -c 'if [ -f .env ]; then node --env-file=.env agent-reception-orchestrator.ts \"$@\"; else node agent-reception-orchestrator.ts \"$@\"; fi' sh",
     "lesson": "sh -c 'if [ -f .env ]; then node --env-file=.env agent-lessons.ts \"$@\"; else node agent-lessons.ts \"$@\"; fi' sh",
     "exercises": "sh -c 'if [ -f .env ]; then node --env-file=.env agent-exercises.ts \"$@\"; else node agent-exercises.ts \"$@\"; fi' sh",
+    "vocabulary": "sh -c 'if [ -f .env ]; then node --env-file=.env agent-vocabulary.ts \"$@\"; else node agent-vocabulary.ts \"$@\"; fi' sh",
+    "news": "sh -c 'if [ -f .env ]; then node --env-file=.env agent-news.ts \"$@\"; else node agent-news.ts \"$@\"; fi' sh",
     "cronjob": "if [ -f .env ]; then node --env-file=.env cronjob.ts; else node cronjob.ts; fi"
   },
   "keywords": [],

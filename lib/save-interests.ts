@@ -9,7 +9,7 @@ export const INTERESTS_PATH = path.join(projectRoot, 'interests.md');
 
 const INTERESTS_HEADER = `# Interests
 
-Topics the learner has expressed interest in during conversations.
+Topics the student has expressed interest in during conversations.
 
 `;
 
