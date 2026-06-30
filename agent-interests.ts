@@ -1,6 +1,6 @@
 import { Agent } from '@openai/agents';
 import { loadAgentContext } from './lib/agent-context.ts';
-import { runLoggedAgent } from './lib/run-agent.ts';
+import { invokeLoggedAgent } from './lib/invoke-agent.ts';
 import { assertAgentEnv, formatCurrentDate } from './lib/study-plan-context.ts';
 import { loadInterestsFile } from './lib/save-interests.ts';
 import { logTurnError } from './utils/turn-log.ts';
@@ -9,6 +9,7 @@ import {
   saveInterestTool,
 } from './tools/interest-tools/save-interest.ts';
 
+/** Used in `analyzeConversationInterests`. */
 function buildSystemInstructions(
   existingInterests: string,
   todayLabel: string,
@@ -47,17 +48,7 @@ Rules:
 4. Save at most one new interest per conversation unless the user clearly expressed multiple distinct learning topics.`;
 }
 
-function createInterestsAgent(existingInterests: string): Agent {
-  const today = formatCurrentDate();
-  const learnerContext = loadAgentContext();
-
-  return new Agent({
-    name: 'Interests observer',
-    instructions: buildSystemInstructions(existingInterests, today.label, learnerContext),
-    tools: [saveInterestTool],
-  });
-}
-
+/** Used in `analyzeConversationInterests`. */
 function buildConversationInput(
   userPrompt: string,
   assistantResponse: string,
@@ -87,13 +78,19 @@ export async function analyzeConversationInterests(
   if (!user || !assistant) return;
 
   const existingInterests = loadInterestsFile();
-  const agent = createInterestsAgent(existingInterests);
+  const today = formatCurrentDate();
+  const learnerContext = loadAgentContext();
+  const agent = new Agent({
+    name: 'interests-observer-agent',
+    instructions: buildSystemInstructions(existingInterests, today.label, learnerContext),
+    tools: [saveInterestTool],
+  });
   const input = buildConversationInput(user, assistant, source);
 
-  await runLoggedAgent(agent, input, 'Interests observer');
+  await invokeLoggedAgent(agent, input, 'interests-observer-agent');
 }
 
-/** Imported in `conversation/session-manager.ts`, `agent-lesson.ts`, and `agent-exercises.ts`. */
+/** Imported in `conversation/session-manager.ts`, `agent-lessons.ts`, and `agent-exercises.ts`. */
 export function scheduleInterestsAnalysis(
   userPrompt: string,
   assistantResponse: string,

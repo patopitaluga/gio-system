@@ -1,23 +1,18 @@
 import { tool } from '@openai/agents';
 import { z } from 'zod';
+import { StudyOutputToolName } from './tool-names.ts';
 
-/** Used in `lib/orchestrator.ts`. */
-export const GENERATE_NEW_LESSON_TOOL_NAME = 'generate_new_lesson';
-
-/** Used in `lib/orchestrator.ts`. */
-export const GENERATE_NEW_EXERCISES_TOOL_NAME = 'generate_new_exercises';
-
-/** JSON payload from generate study-output tools; parsed in `lib/orchestrator.ts`. */
+/** JSON payload from generate study-output tools; parsed in `lib/resolve-agent-output.ts`. */
 export type GenerateStudyOutputResult = {
   markdown: string;
   savedPath: string;
   emailed: boolean;
 };
 
-/** Imported in `lib/orchestrator.ts`. */
+/** Imported in `agent-lessons.ts`. */
 export function createGenerateNewLessonTool() {
   return tool({
-    name: GENERATE_NEW_LESSON_TOOL_NAME,
+    name: StudyOutputToolName.GenerateLesson,
     description:
       'Generate a brand-new lesson from the study plan. Use when the user wants fresh content '
       + 'or no saved lesson exists for the requested date.',
@@ -25,11 +20,11 @@ export function createGenerateNewLessonTool() {
       userPrompt: z
         .string()
         .min(1)
-        .describe('The full user request to pass to the lesson generator'),
+        .describe('The full user request to pass to generate-lesson-agent'),
     }),
     async execute({ userPrompt }) {
-      const { generateDailyLesson } = await import('../../agent-lesson.ts');
-      const result = await generateDailyLesson(userPrompt);
+      const { askLlmToGenerateLesson } = await import('../../agent-lessons.ts');
+      const result = await askLlmToGenerateLesson(userPrompt);
       const payload: GenerateStudyOutputResult = {
         markdown: result.markdown,
         savedPath: result.savedPath,
@@ -41,10 +36,10 @@ export function createGenerateNewLessonTool() {
   });
 }
 
-/** Imported in `lib/orchestrator.ts`. */
+/** Imported in `agent-exercises.ts`. */
 export function createGenerateNewExercisesTool() {
   return tool({
-    name: GENERATE_NEW_EXERCISES_TOOL_NAME,
+    name: StudyOutputToolName.GenerateExercises,
     description:
       'Generate brand-new exercises from the study plan. Use when the user wants fresh content '
       + 'or no saved exercises exist for the requested date.',
@@ -52,11 +47,11 @@ export function createGenerateNewExercisesTool() {
       userPrompt: z
         .string()
         .min(1)
-        .describe('The full user request to pass to the exercises generator'),
+        .describe('The full user request to pass to generate-exercises-agent'),
     }),
     async execute({ userPrompt }) {
-      const { generateDailyExercises } = await import('../../agent-exercises.ts');
-      const result = await generateDailyExercises(userPrompt);
+      const { askLlmToGenerateExercises } = await import('../../agent-exercises.ts');
+      const result = await askLlmToGenerateExercises(userPrompt);
       const payload: GenerateStudyOutputResult = {
         markdown: result.markdown,
         savedPath: result.savedPath,

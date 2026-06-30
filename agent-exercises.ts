@@ -1,6 +1,15 @@
+/**
+ * Exercises flow: **identify-exercises-intent-agent** and **generate-exercises-agent**
+ * (both in this file). CLI entry for `npm run exercises`.
+ *
+ * **Exports**:
+ * - `askLlmToIdentifyExercisesIntent` — **identify-exercises-intent-agent** (retrieve or generate). App, CLI, tests.
+ * - `askLlmToGenerateExercises` — **generate-exercises-agent**. Cron, `generate_new_exercises`.
+ * - `sendExercisesByEmail` — imported in `cronjob.ts`
+ */
 import { Agent } from '@openai/agents';
 import type { RunItem } from '@openai/agents';
-import { runLoggedAgent } from './lib/run-agent.ts';
+import { invokeLoggedAgent } from './lib/invoke-agent.ts';
 import { fileURLToPath } from 'url';
 import {
   assertAgentEnv,
@@ -12,8 +21,12 @@ import { markdownToHtml } from './lib/markdown-to-html.ts';
 import { saveStudyOutput } from './lib/save-study-output.ts';
 import { logStudyOutputStatus } from './lib/log-study-output-status.ts';
 import { NO_CAPTATION_FOLLOWUP_RULE } from './lib/prompt-rules.ts';
-import { runOrchestrator } from './lib/orchestrator.ts';
+import { resolveAgentOutput, type AgentLoopResult } from './lib/resolve-agent-output.ts';
+import { listStudyOutputDates } from './lib/save-study-output.ts';
 import { scheduleInterestsAnalysis } from './agent-interests.ts';
+import { createGenerateNewExercisesTool } from './tools/study-output-tools/generate-study-output-tool.ts';
+import { retrieveExistingExercisesTool } from './tools/study-output-tools/retrieve-existing-study-output.ts';
+import { StudyOutputToolName } from './tools/study-output-tools/tool-names.ts';
 import {
   createSendEmailAgentTool,
   isEmailConfigured,
@@ -30,16 +43,64 @@ import {
 /** Used in `cronjob.ts` and as the default CLI prompt when `npm run exercises` has no args. */
 export const DEFAULT_EXERCISES_PROMPT = 'Generate the exercises for today.';
 
-/** Return type for `generateDailyExercises` and `getExercises`. */
-export type ExercisesRunResult = {
-  markdown: string;
-  emailed: boolean;
-  savedPath: string;
-  source: 'archive' | 'generated' | 'message';
-};
+function formatSavedDates(dates: string[]): string {
+  return dates.length > 0
+    ? dates.map((date) => `- ${date}`).join('\n')
+    : '- (none yet)';
+}
 
-/** Used in `createExercisesAgent`. */
-function buildSystemInstructions(studyPlan: string, today: StudyPlanDate): string {
+/** Used in `createIdentifyExercisesIntentAgent`. */
+function buildIdentifyExercisesIntentInstructions(today: StudyPlanDate, exerciseDates: string[]): string {
+  return `You are the identify-exercises-intent agent in Gio-System — figure out what the user wants regarding exercises, then retrieve saved content or trigger generation.
+
+Today: ${today.generatedAt} (${today.label}, ${today.iso})
+
+Saved exercises (newest first, ISO dates):
+${formatSavedDates(exerciseDates)}
+
+Tools — ${StudyOutputToolName.RetrieveExercises}, ${StudyOutputToolName.GenerateExercises}:
+- Infer the target date from the message in any language, using today as the anchor for relative dates (yesterday, last week, etc.).
+- To read, review, show, repeat, or load existing saved exercises when a file exists for that date, call ${StudyOutputToolName.RetrieveExercises} with that dateIso.
+- If ${StudyOutputToolName.RetrieveExercises} returns found:true, your final reply MUST be the markdown from the tool verbatim. Do not rewrite, summarize, or regenerate it.
+- For newly generated exercises, or when no saved exercises exist for the requested date, call ${StudyOutputToolName.GenerateExercises} with the full user request as userPrompt.
+- When calling ${StudyOutputToolName.GenerateExercises}, pass the user's message unchanged unless you need to clarify the plan day.
+- If ${StudyOutputToolName.RetrieveExercises} returns found:false and the user only wanted past exercises, explain that none are saved for that date and ask whether to generate new ones.
+- On retrieve, do not invent exercises content yourself.
+- You MUST call exactly one study tool before finishing, unless you are only explaining that a retrieve found nothing.
+
+${NO_CAPTATION_FOLLOWUP_RULE}`;
+}
+
+/** Used in `askLlmToIdentifyExercisesIntent`. */
+function createIdentifyExercisesIntentAgent(today: StudyPlanDate, exerciseDates: string[]): Agent {
+  return new Agent({
+    name: 'identify-exercises-intent-agent',
+    instructions: buildIdentifyExercisesIntentInstructions(today, exerciseDates),
+    tools: [retrieveExistingExercisesTool, createGenerateNewExercisesTool()],
+  });
+}
+
+/** **identify-exercises-intent-agent** — retrieve saved file or call `generate_new_exercises`. App, CLI, tests. */
+export async function askLlmToIdentifyExercisesIntent(userPrompt: string): Promise<AgentLoopResult> {
+  assertAgentEnv();
+
+  const prompt = userPrompt.trim();
+  if (!prompt) throw new Error('Exercises prompt is required');
+
+  const today = formatCurrentDate();
+  const exerciseDates = listStudyOutputDates('exercises', 10);
+  const agent = createIdentifyExercisesIntentAgent(today, exerciseDates);
+  const result = await invokeLoggedAgent(agent, prompt, 'identify-exercises-intent-agent');
+
+  return resolveAgentOutput(
+    result,
+    StudyOutputToolName.RetrieveExercises,
+    StudyOutputToolName.GenerateExercises,
+  );
+}
+
+/** Used in `askLlmToGenerateExercises`. */
+function buildGenerateExercisesInstructions(studyPlan: string, today: StudyPlanDate): string {
   const emailRule = isEmailConfigured()
     ? `9. Call ${SEND_EMAIL_TOOL_NAME} only when the user explicitly asks to send or email the exercises. Include the full exercises as plain text; you may omit html. Otherwise return the exercises as your final response only — do not send email on your own.`
     : '9. Email is not configured. Always return the exercises as your final response.';
@@ -78,20 +139,20 @@ Output format:
 - End with the exercises only — no closing offers or teasers.`;
 }
 
-/** Used in `generateDailyExercises`. */
-function createExercisesAgent(studyPlan: string, today: StudyPlanDate): Agent {
+/** Used in `askLlmToGenerateExercises`. */
+function createGenerateExercisesAgent(studyPlan: string, today: StudyPlanDate): Agent {
   const tools = [markStudyPlanItemsTool];
 
   if (isEmailConfigured()) tools.push(createSendEmailAgentTool());
 
   return new Agent({
-    name: 'Language teacher',
-    instructions: buildSystemInstructions(studyPlan, today),
+    name: 'generate-exercises-agent',
+    instructions: buildGenerateExercisesInstructions(studyPlan, today),
     tools,
   });
 }
 
-/** Used in `generateDailyExercises`. */
+/** Used in `askLlmToGenerateExercises`. */
 function wasToolUsed(result: { newItems: RunItem[] }, toolName: string): boolean {
   return result.newItems.some((item) => {
     if (item.type !== 'tool_call_item') return false;
@@ -101,8 +162,10 @@ function wasToolUsed(result: { newItems: RunItem[] }, toolName: string): boolean
   });
 }
 
-/** Imported in `tools/study-output-tools/generate-study-output-tool.ts` (`generate_new_exercises`). Used in `cronjob.ts`. */
-export async function generateDailyExercises(userPrompt: string): Promise<ExercisesRunResult> {
+/** **generate-exercises-agent** — write new exercises from study plan. Cron, `generate_new_exercises`. Defaults when `userPrompt` is omitted. */
+export async function askLlmToGenerateExercises(
+  userPrompt: string = DEFAULT_EXERCISES_PROMPT,
+): Promise<AgentLoopResult> {
   assertAgentEnv();
 
   const prompt = userPrompt.trim();
@@ -110,9 +173,9 @@ export async function generateDailyExercises(userPrompt: string): Promise<Exerci
 
   const today = formatCurrentDate();
   const studyPlan = loadStudyPlan();
-  const agent = createExercisesAgent(studyPlan, today);
+  const agent = createGenerateExercisesAgent(studyPlan, today);
 
-  const result = await runLoggedAgent(agent, prompt, 'Exercises generator');
+  const result = await invokeLoggedAgent(agent, prompt, 'generate-exercises-agent');
 
   assertMarkStudyPlanToolUsed(result);
 
@@ -130,23 +193,27 @@ export async function generateDailyExercises(userPrompt: string): Promise<Exerci
   };
 }
 
-/** Used in CLI (`npm run exercises`). */
-export async function getExercises(userPrompt: string): Promise<ExercisesRunResult> {
-  const outcome = await runOrchestrator(userPrompt);
+/** Used in CLI entry when this file is the main module. */
+function readCliPrompt(): string {
+  const args = process.argv.slice(2).join(' ').trim();
 
-  if (outcome.route === 'general')
-    throw new Error('The orchestrator did not recognize a lesson or exercises request');
+  return args || DEFAULT_EXERCISES_PROMPT;
+}
 
-  const result = {
-    markdown: outcome.result.markdown,
-    emailed: outcome.result.emailed,
-    savedPath: outcome.result.savedPath,
-    source: outcome.result.source,
-  };
+if (process.argv[1] === fileURLToPath(import.meta.url)) { // is running by cli command
+  const prompt = readCliPrompt();
 
-  scheduleInterestsAnalysis(userPrompt, result.markdown, 'exercises');
-
-  return result;
+  askLlmToIdentifyExercisesIntent(prompt)
+    .then((result) => {
+      scheduleInterestsAnalysis(prompt, result.markdown, 'exercises');
+      logStudyOutputStatus('exercises', result.source, result.savedPath);
+      console.log(result.markdown);
+      if (result.emailed) console.log('Exercises emailed via send_email tool.');
+    })
+    .catch((err) => {
+      console.error(err);
+      process.exit(1);
+    });
 }
 
 /** Imported in `cronjob.ts`. */
@@ -159,24 +226,3 @@ export async function sendExercisesByEmail(exercisesMarkdown: string): Promise<S
     html: await markdownToHtml(exercisesMarkdown),
   });
 }
-
-/** Used in CLI entry when this file is the main module. */
-function readCliPrompt(): string {
-  const args = process.argv.slice(2).join(' ').trim();
-
-  return args || DEFAULT_EXERCISES_PROMPT;
-}
-
-const isMainModule = process.argv[1] === fileURLToPath(import.meta.url);
-
-if (isMainModule)
-  getExercises(readCliPrompt())
-    .then(({ markdown, emailed, savedPath, source }) => {
-      logStudyOutputStatus('exercises', source, savedPath);
-      console.log(markdown);
-      if (emailed) console.log('Exercises emailed via send_email tool.');
-    })
-    .catch((err) => {
-      console.error(err);
-      process.exit(1);
-    });

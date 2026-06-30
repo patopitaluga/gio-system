@@ -23,9 +23,7 @@ export function isSpeechPreviewEnabled(): boolean {
   return true;
 }
 
-const isMainModule = process.argv[1] === fileURLToPath(import.meta.url);
-
-if (isMainModule) {
+if (process.argv[1] === fileURLToPath(import.meta.url)) { // is running by cli command
   const app = express();
   const { sessionManager } = await createAgentService();
   const handleTurnPost = createTurnPostHandler(sessionManager);

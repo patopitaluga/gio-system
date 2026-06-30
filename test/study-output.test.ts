@@ -4,23 +4,24 @@ import type { RunItem } from '@openai/agents';
 import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'fs';
 import os from 'os';
 import path from 'path';
-import { getToolOutputs, wasAnyToolUsed } from '../lib/run-tool-results.ts';
-import { resolveStudyOutputFromRun, resolveOrchestratorFromRun, GENERAL_ROUTE } from '../lib/orchestrator.ts';
+import { getToolOutputs, wasAnyToolUsed } from '../lib/agent-tool-outputs.ts';
+import {
+  resolveAgentOutput,
+} from '../lib/resolve-agent-output.ts';
+import {
+  resolveOrchestratorRoute,
+  OrchestratorRoute,
+} from '../agent-reception-orchestrator.ts';
 import {
   readPreviousExercise,
   readPreviousLesson,
   listStudyOutputDates,
   saveStudyOutput,
 } from '../lib/save-study-output.ts';
-import {
-  GENERATE_NEW_EXERCISES_TOOL_NAME,
-  GENERATE_NEW_LESSON_TOOL_NAME,
-} from '../tools/study-output-tools/generate-study-output-tool.ts';
+import { StudyOutputToolName } from '../tools/study-output-tools/tool-names.ts';
 import type { RetrieveStudyOutputResult } from '../tools/study-output-tools/retrieve-existing-study-output.ts';
 import {
   retrieveStudyOutput,
-  RETRIEVE_EXISTING_EXERCISES_TOOL_NAME,
-  RETRIEVE_EXISTING_LESSON_TOOL_NAME,
 } from '../tools/study-output-tools/retrieve-existing-study-output.ts';
 import { logStudyOutputStatus } from '../lib/log-study-output-status.ts';
 import {
@@ -64,7 +65,7 @@ describe('study output orchestrator', () => {
   describe('repeat yesterday lesson', () => {
     /**
      * "Yesterday" / "ayer" → dateIso is the orchestrator LLM's job.
-     * Unit tests mock the retrieve tool output. Live LLM + tool runs: test/integration/study-output.test.ts
+     * Unit tests mock the retrieve tool output. Live LLM + tool runs: `test/integration/study-output.test.ts` (via `npm test`).
      */
     const todayIso = '2026-06-28';
     const yesterdayIso = isoDateDaysBefore(todayIso, 1);
@@ -76,10 +77,10 @@ describe('study output orchestrator', () => {
     ].join('\n');
 
     it('returns the mocked yesterday lesson verbatim, not a model paraphrase', () => {
-      const result = resolveStudyOutputFromRun(
+      const result = resolveAgentOutput(
         {
           newItems: [
-            toolCall('call-yesterday', RETRIEVE_EXISTING_LESSON_TOOL_NAME),
+            toolCall('call-yesterday', StudyOutputToolName.RetrieveLesson),
             toolOutput(
               'call-yesterday',
               mockRetrieveToolOutput({
@@ -92,8 +93,8 @@ describe('study output orchestrator', () => {
           ],
           finalOutput: 'Here is a shorter recap of yesterday\'s lesson on pronouns.',
         },
-        RETRIEVE_EXISTING_LESSON_TOOL_NAME,
-        GENERATE_NEW_LESSON_TOOL_NAME,
+        StudyOutputToolName.RetrieveLesson,
+        StudyOutputToolName.GenerateLesson,
       );
 
       assert.equal(result.source, 'archive');
@@ -103,14 +104,14 @@ describe('study output orchestrator', () => {
     });
   });
 
-  describe('run-tool-results', () => {
+  describe('agent-tool-outputs', () => {
     it('collects outputs for a tool by call id', () => {
       const items = [
-        toolCall('call-1', RETRIEVE_EXISTING_LESSON_TOOL_NAME),
+        toolCall('call-1', StudyOutputToolName.RetrieveLesson),
         toolOutput('call-1', JSON.stringify({ found: true, dateIso: '2026-06-27', markdown: '# Lesson' })),
       ];
 
-      const outputs = getToolOutputs(items, RETRIEVE_EXISTING_LESSON_TOOL_NAME, (value) => value);
+      const outputs = getToolOutputs(items, StudyOutputToolName.RetrieveLesson, (value) => value);
 
       assert.equal(outputs.length, 1);
       assert.deepEqual(outputs[0], {
@@ -121,10 +122,10 @@ describe('study output orchestrator', () => {
     });
 
     it('detects whether any allowed tool was used', () => {
-      const items = [toolCall('call-1', GENERATE_NEW_LESSON_TOOL_NAME)];
+      const items = [toolCall('call-1', StudyOutputToolName.GenerateLesson)];
 
       assert.equal(
-        wasAnyToolUsed(items, [RETRIEVE_EXISTING_LESSON_TOOL_NAME, GENERATE_NEW_LESSON_TOOL_NAME]),
+        wasAnyToolUsed(items, [StudyOutputToolName.RetrieveLesson, StudyOutputToolName.GenerateLesson]),
         true,
       );
     });
@@ -133,18 +134,18 @@ describe('study output orchestrator', () => {
       const items = [toolCall('call-1', 'send_email')];
 
       assert.equal(
-        wasAnyToolUsed(items, [RETRIEVE_EXISTING_EXERCISES_TOOL_NAME, GENERATE_NEW_EXERCISES_TOOL_NAME]),
+        wasAnyToolUsed(items, [StudyOutputToolName.RetrieveExercises, StudyOutputToolName.GenerateExercises]),
         false,
       );
     });
   });
 
-  describe('resolveStudyOutputFromRun', () => {
+  describe('resolveAgentOutput', () => {
     it('prefers retrieved markdown over final output', () => {
-      const result = resolveStudyOutputFromRun(
+      const result = resolveAgentOutput(
         {
           newItems: [
-            toolCall('call-1', RETRIEVE_EXISTING_LESSON_TOOL_NAME),
+            toolCall('call-1', StudyOutputToolName.RetrieveLesson),
             toolOutput(
               'call-1',
               mockRetrieveToolOutput({
@@ -157,8 +158,8 @@ describe('study output orchestrator', () => {
           ],
           finalOutput: 'Summarized lesson',
         },
-        RETRIEVE_EXISTING_LESSON_TOOL_NAME,
-        GENERATE_NEW_LESSON_TOOL_NAME,
+        StudyOutputToolName.RetrieveLesson,
+        StudyOutputToolName.GenerateLesson,
       );
 
       assert.equal(result.source, 'archive');
@@ -168,10 +169,10 @@ describe('study output orchestrator', () => {
     });
 
     it('uses generate tool output when retrieve did not find a file', () => {
-      const result = resolveStudyOutputFromRun(
+      const result = resolveAgentOutput(
         {
           newItems: [
-            toolCall('call-1', GENERATE_NEW_LESSON_TOOL_NAME),
+            toolCall('call-1', StudyOutputToolName.GenerateLesson),
             toolOutput(
               'call-1',
               JSON.stringify({
@@ -183,8 +184,8 @@ describe('study output orchestrator', () => {
           ],
           finalOutput: 'Fresh lesson',
         },
-        RETRIEVE_EXISTING_LESSON_TOOL_NAME,
-        GENERATE_NEW_LESSON_TOOL_NAME,
+        StudyOutputToolName.RetrieveLesson,
+        StudyOutputToolName.GenerateLesson,
       );
 
       assert.equal(result.source, 'generated');
@@ -193,16 +194,16 @@ describe('study output orchestrator', () => {
     });
 
     it('falls back to final output when retrieve returns found:false', () => {
-      const result = resolveStudyOutputFromRun(
+      const result = resolveAgentOutput(
         {
           newItems: [
-            toolCall('call-1', RETRIEVE_EXISTING_LESSON_TOOL_NAME),
+            toolCall('call-1', StudyOutputToolName.RetrieveLesson),
             toolOutput('call-1', JSON.stringify({ found: false, dateIso: '2026-06-27' })),
           ],
           finalOutput: 'No saved lesson for that date.',
         },
-        RETRIEVE_EXISTING_LESSON_TOOL_NAME,
-        GENERATE_NEW_LESSON_TOOL_NAME,
+        StudyOutputToolName.RetrieveLesson,
+        StudyOutputToolName.GenerateLesson,
       );
 
       assert.equal(result.source, 'message');
@@ -211,67 +212,43 @@ describe('study output orchestrator', () => {
 
     it('throws when no tool output or final message is available', () => {
       assert.throws(
-        () => resolveStudyOutputFromRun(
+        () => resolveAgentOutput(
           { newItems: [], finalOutput: '   ' },
-          RETRIEVE_EXISTING_LESSON_TOOL_NAME,
-          GENERATE_NEW_LESSON_TOOL_NAME,
+          StudyOutputToolName.RetrieveLesson,
+          StudyOutputToolName.GenerateLesson,
         ),
-        /did not produce a response/,
+        /Agent did not produce a response/,
       );
     });
   });
 
-  describe('resolveOrchestratorFromRun', () => {
-    it('returns general when no study tools were used', () => {
-      assert.deepEqual(
-        resolveOrchestratorFromRun({ newItems: [], finalOutput: GENERAL_ROUTE }),
-        { route: GENERAL_ROUTE },
+  describe('resolveOrchestratorRoute', () => {
+    it('returns general for a general reply', () => {
+      assert.equal(
+        resolveOrchestratorRoute({ finalOutput: OrchestratorRoute.General }),
+        OrchestratorRoute.General,
       );
     });
 
-    it('routes lesson retrieve output', () => {
-      const result = resolveOrchestratorFromRun({
-        newItems: [
-          toolCall('call-1', RETRIEVE_EXISTING_LESSON_TOOL_NAME),
-          toolOutput(
-            'call-1',
-            mockRetrieveToolOutput({
-              found: true,
-              dateIso: '2026-06-27',
-              markdown: '# Archived lesson',
-              savedPath: 'lessons/2026-06-27.md',
-            }),
-          ),
-        ],
-        finalOutput: 'Summarized lesson',
-      });
-
-      assert.equal(result.route, 'lesson');
-      if (result.route === 'general') assert.fail('expected lesson route');
-      assert.equal(result.result.source, 'archive');
-      assert.equal(result.result.markdown, '# Archived lesson');
+    it('returns lesson for a lesson reply', () => {
+      assert.equal(
+        resolveOrchestratorRoute({ finalOutput: OrchestratorRoute.Lesson }),
+        OrchestratorRoute.Lesson,
+      );
     });
 
-    it('routes exercises generate output', () => {
-      const result = resolveOrchestratorFromRun({
-        newItems: [
-          toolCall('call-1', GENERATE_NEW_EXERCISES_TOOL_NAME),
-          toolOutput(
-            'call-1',
-            JSON.stringify({
-              markdown: '# Fresh exercises',
-              savedPath: 'exercises/2026-06-28.md',
-              emailed: false,
-            }),
-          ),
-        ],
-        finalOutput: 'Fresh exercises',
-      });
+    it('returns exercises for an exercises reply', () => {
+      assert.equal(
+        resolveOrchestratorRoute({ finalOutput: OrchestratorRoute.Exercises }),
+        OrchestratorRoute.Exercises,
+      );
+    });
 
-      assert.equal(result.route, 'exercises');
-      if (result.route === 'general') assert.fail('expected exercises route');
-      assert.equal(result.result.source, 'generated');
-      assert.equal(result.result.markdown, '# Fresh exercises');
+    it('throws for an invalid route reply', () => {
+      assert.throws(
+        () => resolveOrchestratorRoute({ finalOutput: 'maybe lesson?' }),
+        /did not produce a valid route/,
+      );
     });
   });
 });
@@ -358,8 +335,8 @@ describe('logOpenAiUsage', () => {
     const usage = usageFromAgentsUsage(new Usage({ inputTokens: 1200, outputTokens: 300, requests: 2 }));
 
     assert.equal(usage.totalTokens, 1500);
-    assert.match(formatOpenAiUsageLine('Lesson generator', usage), /1,?500 tokens/);
-    assert.match(formatOpenAiUsageLine('Lesson generator', usage), /input: 1,?200/);
+    assert.match(formatOpenAiUsageLine('generate-lesson-agent', usage), /1,?500 tokens/);
+    assert.match(formatOpenAiUsageLine('generate-lesson-agent', usage), /input: 1,?200/);
   });
 
   it('parses Realtime response usage', () => {
@@ -375,12 +352,12 @@ describe('logOpenAiUsage', () => {
 
   it('summarizes study-output tool args and results for logs', () => {
     assert.deepEqual(
-      summarizeToolArgsForLog('generate_new_lesson', { userPrompt: 'Generate the lesson for today.' }),
+      summarizeToolArgsForLog(StudyOutputToolName.GenerateLesson, { userPrompt: 'Generate the lesson for today.' }),
       { userPrompt: 'Generate the lesson for today.' },
     );
     assert.match(
       summarizeToolResultForLog(
-        'retrieve_existing_lesson',
+        StudyOutputToolName.RetrieveLesson,
         JSON.stringify({ found: true, dateIso: '2026-06-28', markdown: '# Lesson' }),
       ),
       /found:true · 2026-06-28 · 8 chars/,

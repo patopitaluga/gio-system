@@ -6,11 +6,10 @@
   "scripts": {
     "start": "electron .",
     "server": "if [ -f .env ]; then node --env-file=.env server.ts; else node server.ts; fi",
-    "test": "node --test test/*.test.ts",
-    "test:integration": "RUN_OPENAI_INTEGRATION_TESTS=1 sh -c 'if [ -f .env ]; then node --env-file=.env --test test/integration/*.test.ts; else node --test test/integration/*.test.ts; fi'",
+    "test": "sh -c 'if [ -f .env ]; then node --env-file=.env --test test/*.test.ts test/integration/*.test.ts; else node --test test/*.test.ts test/integration/*.test.ts; fi' sh",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
-    "lesson": "sh -c 'if [ -f .env ]; then node --env-file=.env agent-lesson.ts \"$@\"; else node agent-lesson.ts \"$@\"; fi' sh",
+    "lesson": "sh -c 'if [ -f .env ]; then node --env-file=.env agent-lessons.ts \"$@\"; else node agent-lessons.ts \"$@\"; fi' sh",
     "exercises": "sh -c 'if [ -f .env ]; then node --env-file=.env agent-exercises.ts \"$@\"; else node agent-exercises.ts \"$@\"; fi' sh",
     "cronjob": "if [ -f .env ]; then node --env-file=.env cronjob.ts; else node cronjob.ts; fi"
   },

@@ -2,6 +2,7 @@ import { styleText } from 'node:util';
 import { Runner, type Agent, type RunResult, type Tool } from '@openai/agents';
 import { getToolName } from './tools.ts';
 import { parseToolArguments } from './parse-tool-arguments.ts';
+import { StudyOutputToolName } from '../tools/study-output-tools/tool-names.ts';
 import {
   logOpenAiResponseReceived,
   logOpenAiThinking,
@@ -52,15 +53,15 @@ export function summarizeToolArgsForLog(
   args: Record<string, unknown>,
 ): Record<string, unknown> {
   switch (toolName) {
-    case 'generate_new_lesson':
-    case 'generate_new_exercises':
+    case StudyOutputToolName.GenerateLesson:
+    case StudyOutputToolName.GenerateExercises:
       return {
         userPrompt: typeof args.userPrompt === 'string'
           ? truncate(args.userPrompt, 120)
           : args.userPrompt,
       };
-    case 'retrieve_existing_lesson':
-    case 'retrieve_existing_exercises':
+    case StudyOutputToolName.RetrieveLesson:
+    case StudyOutputToolName.RetrieveExercises:
       return { dateIso: args.dateIso };
     case 'mark_study_plan_items':
       return {
@@ -89,10 +90,10 @@ export function summarizeToolResultForLog(toolName: string, result: string): str
   if (isToolErrorResult(result)) return truncate(result, 240);
 
   if (
-    toolName === 'generate_new_lesson'
-    || toolName === 'generate_new_exercises'
-    || toolName === 'retrieve_existing_lesson'
-    || toolName === 'retrieve_existing_exercises'
+    toolName === StudyOutputToolName.GenerateLesson
+    || toolName === StudyOutputToolName.GenerateExercises
+    || toolName === StudyOutputToolName.RetrieveLesson
+    || toolName === StudyOutputToolName.RetrieveExercises
   ) {
     try {
       const parsed = JSON.parse(result) as {
@@ -215,7 +216,7 @@ function logRunTraceSummary(contextLabel: string, requests: TracedRequest[], res
   }
 }
 
-/** Imported in `lib/run-agent.ts`. */
+/** Imported in `lib/invoke-agent.ts`. */
 export function createAgentRunTrace(contextLabel: string) {
   const runner = new Runner();
   const requests: TracedRequest[] = [];

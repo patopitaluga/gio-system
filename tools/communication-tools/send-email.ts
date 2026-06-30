@@ -1,11 +1,10 @@
 import { tool as agentTool } from '@openai/agents';
-import { tool as realtimeTool } from '@openai/agents/realtime';
 import nodemailer from 'nodemailer';
 import { z } from 'zod';
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-/** Used in `agent-lesson.ts`, `agent-exercises.ts`, and `conversation/tools.ts`. */
+/** Used in `agent-lessons.ts` and `agent-exercises.ts`. */
 export const SEND_EMAIL_TOOL_NAME = 'send_email';
 
 const sendEmailParameters = z.object({
@@ -20,7 +19,7 @@ const sendEmailParameters = z.object({
   html: z.string().optional().describe('Optional HTML email body'),
 });
 
-/** Imported in `agent-lesson.ts`, `agent-exercises.ts`, and `conversation/tools.ts`. */
+/** Imported in `agent-lessons.ts` and `agent-exercises.ts`. */
 export function isEmailConfigured(): boolean {
   return Boolean(
     process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS,
@@ -76,7 +75,7 @@ export type SendEmailResult = {
   to: string;
 };
 
-/** Imported in `agent-lesson.ts` and `agent-exercises.ts` (`sendLessonByEmail` / `sendExercisesByEmail`). */
+/** Imported in `agent-lessons.ts` and `agent-exercises.ts` (`sendLessonByEmail` / `sendExercisesByEmail`). */
 export async function sendEmail(input: SendEmailInput): Promise<SendEmailResult> {
   if (!isEmailConfigured())
     throw new Error('SMTP is not configured. Set SMTP_HOST, SMTP_USER, and SMTP_PASS in .env');
@@ -100,19 +99,7 @@ async function executeSendEmail(input: z.infer<typeof sendEmailParameters>): Pro
   return JSON.stringify(result);
 }
 
-/** Imported in `conversation/tools.ts`. */
-export function createSendEmailTool() {
-  return realtimeTool({
-    name: SEND_EMAIL_TOOL_NAME,
-    description:
-      'Send an email via SMTP. Call this when the user asks to send or email something — do not only offer to draft in chat.',
-    needsApproval: true,
-    parameters: sendEmailParameters,
-    execute: executeSendEmail,
-  });
-}
-
-/** Imported in `agent-lesson.ts` and `agent-exercises.ts`. */
+/** Imported in `agent-lessons.ts` and `agent-exercises.ts`. */
 export function createSendEmailAgentTool() {
   return agentTool({
     name: SEND_EMAIL_TOOL_NAME,

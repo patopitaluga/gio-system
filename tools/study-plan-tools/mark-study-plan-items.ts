@@ -4,10 +4,10 @@ import { z } from 'zod';
 import { formatCurrentDate } from '../../lib/study-plan-context.ts';
 import { markStudyPlanItems } from '../../lib/study-plan-mark.ts';
 
-/** Used in `agent-lesson.ts`, `agent-exercises.ts`, and `lib/orchestrator.ts`. */
+/** Used in `agent-lessons.ts` and `agent-exercises.ts`. */
 export const MARK_STUDY_PLAN_ITEMS_TOOL_NAME = 'mark_study_plan_items';
 
-/** Imported in `agent-lesson.ts` and `agent-exercises.ts`. */
+/** Imported in `agent-lessons.ts` and `agent-exercises.ts`. */
 export const markStudyPlanItemsTool = tool({
   name: MARK_STUDY_PLAN_ITEMS_TOOL_NAME,
   description:
@@ -57,7 +57,7 @@ function ensureMarkStudyPlanToolUsed(result: { newItems: RunItem[] }, required: 
   console.warn(`[gio-system] Warning: ${MARK_STUDY_PLAN_ITEMS_TOOL_NAME} was not called.`);
 }
 
-/** Imported in `agent-lesson.ts`. */
+/** Imported in `agent-lessons.ts`. */
 export function warnIfMarkStudyPlanToolMissing(result: { newItems: RunItem[] }): void {
   ensureMarkStudyPlanToolUsed(result, false);
 }

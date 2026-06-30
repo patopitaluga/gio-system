@@ -1,15 +1,14 @@
 import cron from 'node-cron';
 import {
-  DEFAULT_EXERCISES_PROMPT,
-  generateDailyExercises,
+  askLlmToGenerateExercises,
   sendExercisesByEmail,
 } from './agent-exercises.ts';
-import { DEFAULT_LESSON_PROMPT, generateDailyLesson, sendLessonByEmail } from './agent-lesson.ts';
+import { askLlmToGenerateLesson, sendLessonByEmail } from './agent-lessons.ts';
 import { formatCurrentDate, formatLocalDateIso } from './lib/study-plan-context.ts';
 import { readPreviousExercise, readPreviousLesson } from './lib/save-study-output.ts';
 import { logStudyOutputStatus } from './lib/log-study-output-status.ts';
 
-type DailySchedule = {
+type CronSchedule = {
   id: string;
   label: string;
   hour: number;
@@ -18,16 +17,15 @@ type DailySchedule = {
 };
 
 /** Used in `cronjob.ts` (`SCHEDULES`). */
-export const LESSON_SCHEDULE: DailySchedule = {
+export const LESSON_SCHEDULE: CronSchedule = {
   id: 'lesson',
-  label: 'Daily lesson',
+  label: 'Lesson',
   hour: 9,
   enabled: true,
   run: async () => {
     const today = formatCurrentDate();
     // Cron has no user prompt to interpret — intent is fixed: email today's lesson if
-    // already saved, otherwise generate once. Unlike `npm run lesson` (getLesson → unified
-    // orchestrator), a filesystem check is enough and avoids an API call on every rerun.
+    // already saved, otherwise generate once. Unlike `npm run lesson` (askLlmToIdentifyLessonIntent),
     const existing = readPreviousLesson(today.iso);
 
     if (existing) {
@@ -35,16 +33,16 @@ export const LESSON_SCHEDULE: DailySchedule = {
       return sendLessonByEmail(existing.markdown);
     }
 
-    const { markdown, savedPath, source } = await generateDailyLesson(DEFAULT_LESSON_PROMPT);
+    const { markdown, savedPath, source } = await askLlmToGenerateLesson();
     logStudyOutputStatus('lessons', source, savedPath, { prefix: '[cronjob] ' });
     return sendLessonByEmail(markdown);
   },
 };
 
 /** Used in `cronjob.ts` (`SCHEDULES`). */
-export const EXERCISES_SCHEDULE: DailySchedule = {
+export const EXERCISES_SCHEDULE: CronSchedule = {
   id: 'exercises',
-  label: 'Daily exercises',
+  label: 'Exercises',
   hour: 9,
   enabled: true,
   run: async () => {
@@ -57,7 +55,7 @@ export const EXERCISES_SCHEDULE: DailySchedule = {
       return sendExercisesByEmail(existing.markdown);
     }
 
-    const { markdown, savedPath, source } = await generateDailyExercises(DEFAULT_EXERCISES_PROMPT);
+    const { markdown, savedPath, source } = await askLlmToGenerateExercises();
     logStudyOutputStatus('exercises', source, savedPath, { prefix: '[cronjob] ' });
     return sendExercisesByEmail(markdown);
   },
@@ -70,13 +68,13 @@ function todayKey(): string {
   return formatLocalDateIso();
 }
 
-function isDue(schedule: DailySchedule): boolean {
+function isDue(schedule: CronSchedule): boolean {
   if (!schedule.enabled) return false;
 
   return new Date().getHours() === schedule.hour;
 }
 
-async function runSchedule(schedule: DailySchedule): Promise<void> {
+async function runSchedule(schedule: CronSchedule): Promise<void> {
   const today = todayKey();
 
   if (lastRunBySchedule.get(schedule.id) === today) return;

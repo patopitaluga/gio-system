@@ -1,22 +1,13 @@
 /**
- * Integration tests for the lesson orchestrator (real OpenAI Agent + tool runs).
- *
- * Not run by default — requires API access and costs tokens:
- *
- *   RUN_OPENAI_INTEGRATION_TESTS=1 npm run test:integration
- *
- * Loads OPENAI_API_KEY from .env when present (same as other npm scripts).
+ * Live OpenAI agent tests for lesson retrieve/generate (costs tokens).
+ * Runs with `npm test`; loads OPENAI_API_KEY from `.env` when present.
  */
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'fs';
 import path from 'path';
 import { projectRoot } from '../../lib/workspace.ts';
-import { getLesson } from '../../agent-lesson.ts';
-
-const runIntegration =
-  process.env.RUN_OPENAI_INTEGRATION_TESTS === '1'
-  && Boolean(process.env.OPENAI_API_KEY?.trim());
+import { askLlmToIdentifyLessonIntent } from '../../agent-lessons.ts';
 
 const INTEGRATION_DATE = '2099-03-15';
 const INTEGRATION_MARKER = `integration-lesson-${INTEGRATION_DATE}`;
@@ -25,7 +16,7 @@ function integrationLessonPath(dateIso: string): string {
   return path.join(projectRoot, 'lessons', `${dateIso}.md`);
 }
 
-/** Local calendar yesterday — matches how the orchestrator LLM resolves "yesterday". */
+/** Local calendar yesterday — matches how the lesson agent LLM resolves "yesterday". */
 function getLocalYesterdayIso(): string {
   const now = new Date();
   now.setDate(now.getDate() - 1);
@@ -63,8 +54,8 @@ function restoreLessonFile(dateIso: string, backup: string | null): void {
   writeFileSync(filePath, backup, 'utf8');
 }
 
-describe('study output LLM integration', { skip: !runIntegration }, () => {
-  describe('getLesson', () => {
+describe('study output LLM integration', () => {
+  describe('askLlmToIdentifyLessonIntent', () => {
     it(
       'calls retrieve_existing_lesson for an explicit saved date',
       { timeout: 120_000 },
@@ -78,7 +69,7 @@ describe('study output LLM integration', { skip: !runIntegration }, () => {
         writeIntegrationLesson(INTEGRATION_DATE, exactContent);
 
         try {
-          const result = await getLesson(
+          const result = await askLlmToIdentifyLessonIntent(
             `Please show me the lesson from ${INTEGRATION_DATE}. I want the exact saved version.`,
           );
 
@@ -111,12 +102,12 @@ describe('study output LLM integration', { skip: !runIntegration }, () => {
         ];
 
         try {
-          let lastResult = await getLesson(prompts[0]);
+          let lastResult = await askLlmToIdentifyLessonIntent(prompts[0]);
 
           for (const prompt of prompts.slice(1)) {
             if (lastResult.source === 'archive') break;
 
-            lastResult = await getLesson(prompt);
+            lastResult = await askLlmToIdentifyLessonIntent(prompt);
           }
 
           assert.equal(
@@ -132,11 +123,5 @@ describe('study output LLM integration', { skip: !runIntegration }, () => {
         }
       },
     );
-  });
-});
-
-describe('study output LLM integration (skipped)', { skip: runIntegration }, () => {
-  it('documents how to run live OpenAI integration tests', () => {
-    assert.ok(true);
   });
 });

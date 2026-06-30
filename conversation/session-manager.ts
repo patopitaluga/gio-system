@@ -3,16 +3,16 @@
  *
  * A turn is one user request (voice, text, and/or image) through to the agent's
  * final text reply. Before calling the multimodal model, this module runs the
- * unified orchestrator in `lib/orchestrator.ts`: one agent decides general vs
+ * unified orchestrator in `agent-reception-orchestrator.ts`: one agent decides general vs
  * lesson vs exercises and retrieve vs generate, otherwise falls back to the
  * conversation assistant (`gpt-realtime-1.5` via the OpenAI Realtime API).
  *
  * Flow per turn:
- * 1. **Orchestrator** — `runOrchestrator()` (single SDK `Agent` + tools).
- * 2. **Fallback** — conversation assistant handles general requests (open chat, email).
+ * 1. **reception-orchestrator-agent** — `runOrchestrator()` returns general, lesson, or exercises (no tools).
+ * 2. **Lesson / exercises agents** — retrieve or generate when routed; conversation assistant handles general.
  *
  * @see {@link https://openai.github.io/openai-agents-js/guides/multi-agent/ | Agent orchestration (SDK)}
- * @see ../lib/orchestrator.ts — unified routing
+ * @see ../agent-reception-orchestrator.ts — unified routing
  *
  * **Exports** (1 class, 2 public methods):
  * - `TurnSessionManager` — session lifecycle and single-turn concurrency guard
@@ -38,9 +38,11 @@ import {
   logTurnError,
   logUserPrompt,
 } from '../utils/turn-log.ts';
-import { runOrchestrator } from '../lib/orchestrator.ts';
+import { runOrchestrator, OrchestratorRoute } from '../agent-reception-orchestrator.ts';
+import { askLlmToIdentifyLessonIntent } from '../agent-lessons.ts';
+import { askLlmToIdentifyExercisesIntent } from '../agent-exercises.ts';
 import { scheduleInterestsAnalysis } from '../agent-interests.ts';
-import { createAgent, createSessionConfig } from './session-config.ts';
+import { createAgent, createSessionConfig } from './general-conversation-agent.ts';
 import {
   buildUserPrompt,
   formatToolAction,
@@ -99,27 +101,31 @@ export class TurnSessionManager {
    * Returns a completed {@link TurnResult} when lesson or exercises own the turn,
    * or `null` so the caller can fall back to the conversation assistant (general path).
    *
-   * @see ../lib/orchestrator.ts
+   * @see ../agent-reception-orchestrator.ts
    */
   private async runOrchestratedTurn(
     userMessage: string,
     metadata: TurnMetadata,
     onStream?: (event: TurnStreamEvent) => void,
   ): Promise<TurnResult | null> {
-    const outcome = await runOrchestrator(userMessage);
-    if (outcome.route === 'general') return null;
+    const route = await runOrchestrator(userMessage);
+    if (route === OrchestratorRoute.General) return null;
 
-    logTurn('orchestrator routed', {
-      route: outcome.route,
-      source: outcome.result.source,
+    const result = route === OrchestratorRoute.Lesson
+      ? await askLlmToIdentifyLessonIntent(userMessage)
+      : await askLlmToIdentifyExercisesIntent(userMessage);
+
+    logTurn('reception-orchestrator-agent routed', {
+      route,
+      source: result.source,
     });
 
-    const content = outcome.result.markdown;
+    const content = result.markdown;
     onStream?.({ type: 'response.delta', delta: content, response: content });
 
     return {
       userPrompt: buildUserPrompt(metadata, userMessage),
-      actions: [`${outcome.route}: ${outcome.result.source}`],
+      actions: [`${route}: ${result.source}`],
       response: content,
     };
   }
@@ -290,7 +296,7 @@ export class TurnSessionManager {
           return;
         }
 
-        logUserPrompt('Conversation assistant', transcript, {
+        logUserPrompt('general-conversation-agent', transcript, {
           hasImage: Boolean(metadata.imageDataUrl),
           typedQuestion: metadata.question?.trim() || undefined,
         });
@@ -387,7 +393,7 @@ export class TurnSessionManager {
         }
 
         if (event.type === 'response.created') {
-          logOpenAiRequest('Conversation assistant');
+          logOpenAiRequest('general-conversation-agent');
           logOpenAiThinking();
         }
 
@@ -411,7 +417,7 @@ export class TurnSessionManager {
 
           const usage = usageFromRealtimeResponse(event.response?.usage);
           if (usage) {
-            logOpenAiUsage('Conversation assistant', usage);
+            logOpenAiUsage('general-conversation-agent', usage);
           }
 
           if (status !== 'completed') {
@@ -453,7 +459,7 @@ export class TurnSessionManager {
 
       if (messageContent.length > 0) {
         if (metadata.question?.trim()) {
-          logUserPrompt('Conversation assistant', metadata.question, {
+          logUserPrompt('general-conversation-agent', metadata.question, {
             hasImage: Boolean(metadata.imageDataUrl),
             hasAudio: Boolean(metadata.hasAudio),
           });

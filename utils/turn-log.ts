@@ -9,7 +9,7 @@ export function logTurn(message: string, details?: Record<string, unknown>) {
   console.log(`[gio-system:turn] ${message}${formatDetails(details)}`);
 }
 
-/** Imported in `lib/run-agent.ts`. */
+/** Imported in `lib/invoke-agent.ts`. */
 export function logUserPrompt(target: string, prompt: string, details?: Record<string, unknown>) {
   const trimmed = prompt.trim();
   if (!trimmed) return;

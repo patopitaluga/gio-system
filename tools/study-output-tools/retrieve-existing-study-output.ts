@@ -5,14 +5,9 @@ import {
   readPreviousLesson,
   type StudyOutputKind,
 } from '../../lib/save-study-output.ts';
+import { StudyOutputToolName } from './tool-names.ts';
 
-/** Used in `lib/orchestrator.ts`. */
-export const RETRIEVE_EXISTING_LESSON_TOOL_NAME = 'retrieve_existing_lesson';
-
-/** Used in `lib/orchestrator.ts`. */
-export const RETRIEVE_EXISTING_EXERCISES_TOOL_NAME = 'retrieve_existing_exercises';
-
-/** JSON payload from retrieve study-output tools; parsed in `lib/orchestrator.ts`. */
+/** JSON payload from retrieve study-output tools; parsed in `lib/resolve-agent-output.ts`. */
 export type RetrieveStudyOutputResult = {
   found: boolean;
   dateIso: string;
@@ -62,16 +57,16 @@ function createRetrieveExistingStudyOutputTool(
   });
 }
 
-/** Imported in `lib/orchestrator.ts`. */
+/** Imported in `agent-lessons.ts`. */
 export const retrieveExistingLessonTool = createRetrieveExistingStudyOutputTool(
   'lessons',
-  RETRIEVE_EXISTING_LESSON_TOOL_NAME,
+  StudyOutputToolName.RetrieveLesson,
   'lesson',
 );
 
-/** Imported in `lib/orchestrator.ts`. */
+/** Imported in `agent-exercises.ts`. */
 export const retrieveExistingExercisesTool = createRetrieveExistingStudyOutputTool(
   'exercises',
-  RETRIEVE_EXISTING_EXERCISES_TOOL_NAME,
+  StudyOutputToolName.RetrieveExercises,
   'exercises',
 );
