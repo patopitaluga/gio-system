@@ -40,7 +40,7 @@ import {
 import {
   warnIfMarkStudyPlanToolMissing,
   MARK_STUDY_PLAN_ITEMS_TOOL_NAME,
-  markStudyPlanItemsTool,
+  createMarkStudyPlanItemsTool,
 } from '../tools/study-plan-tools/mark-study-plan-items.ts';
 
 const DEFAULT_LESSON_PROMPT = 'Generate the lesson for today.';
@@ -127,11 +127,11 @@ Full study plan:
 ${studyPlan}
 ---
 
-Follow the user prompt to decide which plan day to teach and any extra focus (for example tomorrow's entry or additional vocabulary topics).
+Follow the user prompt to decide which plan day to teach. Default to today (${today.label}); use another day only when the user specifically asks (for example tomorrow's lesson).
 
 Core rules:
 1. Infer from the plan the target language, the student's language, and any other relevant context.
-2. Find the plan entry for the day requested in the user prompt (default: today).
+2. Find the plan entry for today (${today.label}) unless the user specifically asked for a different day.
 3. For that day, separate THEORETICAL CONTENT from EXERCISES or PRACTICE.
    - Theory: new topics, grammar, vocabulary, explanations, rules.
    - Exercises/practice: activities such as "practice", "write", "conjugate", "simulate", "compose a text", etc.
@@ -139,7 +139,7 @@ Core rules:
 5. Do not include exercises, practice tasks, or student activities.
 6. Write clearly and structurally in the student's language, with examples in the target language when appropriate.
 7. If the day only lists practice activities, teach the underlying theory needed to understand them, without assigning those activities.
-8. After writing the lesson, call ${MARK_STUDY_PLAN_ITEMS_TOOL_NAME} at most once with unchecked THEORETICAL plan item texts you covered. Do not pass practice or exercise lines (for example "write", "practice", "conjugate"). Pass planDateLabel matching the plan day you taught (same format as plan headers, e.g. "29 de junio (Lunes)"). If that day has no unchecked theoretical items, skip this tool entirely.
+8. After writing the lesson, call ${MARK_STUDY_PLAN_ITEMS_TOOL_NAME} at most once with unchecked THEORETICAL plan item texts you covered on that plan day. Do not pass practice or exercise lines (for example "write", "practice", "conjugate"). planDateLabel defaults to today (${today.label}); only pass another day when the user specifically asked for it. If that day has no unchecked theoretical items, skip this tool entirely.
 9. ${NO_CAPTATION_FOLLOWUP_RULE}
 ${emailRule.replace(/^9\./, '10.')}
 
@@ -154,7 +154,7 @@ Output format:
 
 /** Used in `askLlmToGenerateLesson`. */
 function createGenerateLessonAgent(studyPlan: string, today: StudyPlanDate): Agent {
-  const tools = [markStudyPlanItemsTool];
+  const tools = [createMarkStudyPlanItemsTool(today)];
 
   if (isEmailConfigured()) tools.push(createSendEmailAgentTool());
 

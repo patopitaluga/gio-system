@@ -36,9 +36,9 @@ import {
   type SendEmailResult,
 } from '../tools/communication-tools/send-email.ts';
 import {
-  assertMarkStudyPlanToolUsed,
+  warnIfMarkStudyPlanToolMissing,
   MARK_STUDY_PLAN_ITEMS_TOOL_NAME,
-  markStudyPlanItemsTool,
+  createMarkStudyPlanItemsTool,
 } from '../tools/study-plan-tools/mark-study-plan-items.ts';
 
 /** Used in `cronjob.ts` and as the default CLI prompt when `npm run exercises` has no args. */
@@ -126,19 +126,19 @@ Full study plan:
 ${studyPlan}
 ---
 
-Follow the user prompt to decide which plan day to target and any extra focus (for example tomorrow's entry or additional practice topics).
+Follow the user prompt to decide which plan day to target. Default to today (${today.label}); use another day only when the user specifically asks (for example tomorrow's exercises).
 
 Core rules:
 1. Infer from the plan the target language, the student's language, and any other relevant context.
-2. Find the plan entry for the day requested in the user prompt (default: today).
+2. Find the plan entry for today (${today.label}) unless the user specifically asked for a different day.
 3. For that day, separate THEORETICAL CONTENT from EXERCISES or PRACTICE.
    - Theory: new topics, grammar, vocabulary, explanations, rules.
    - Exercises/practice: activities such as "practice", "write", "conjugate", "simulate", "compose a text", etc.
 4. Create practical exercises from the exercise/practice items for that day only.
 5. Do not include theoretical explanations or lessons; go straight to the activities.
 6. Write clear, varied, actionable exercises in the student's language, using the target language where appropriate.
-7. If the day only lists theoretical content, design practical exercises for those topics and mark those plan items.
-8. After writing the exercises, you MUST call ${MARK_STUDY_PLAN_ITEMS_TOOL_NAME} exactly once with the plan item texts you covered. Pass planDateLabel matching the plan day you targeted (same format as plan headers, e.g. "29 de junio (Lunes)"). Do not finish without calling it.
+7. If the day only lists theoretical content, design practical exercises for those topics. Do not mark theoretical items — the lesson agent handles those. Do not mark items from other plan days.
+8. After writing the exercises, call ${MARK_STUDY_PLAN_ITEMS_TOOL_NAME} at most once with unchecked exercise/practice item texts you covered on that plan day. planDateLabel defaults to today (${today.label}); only pass another day when the user specifically asked for it. If that day has no unchecked exercise or practice items to mark, skip this tool entirely.
 9. ${NO_CAPTATION_FOLLOWUP_RULE}
 ${emailRule.replace(/^9\./, '10.')}
 
@@ -153,7 +153,7 @@ Output format:
 
 /** Used in `askLlmToGenerateExercises`. */
 function createGenerateExercisesAgent(studyPlan: string, today: StudyPlanDate): Agent {
-  const tools = [markStudyPlanItemsTool];
+  const tools = [createMarkStudyPlanItemsTool(today)];
 
   if (isEmailConfigured()) tools.push(createSendEmailAgentTool());
 
@@ -191,7 +191,7 @@ export async function askLlmToGenerateExercises(
 
   const result = await askAgentAndLog(agent, prompt, 'generate-exercises-agent');
 
-  assertMarkStudyPlanToolUsed(result);
+  warnIfMarkStudyPlanToolMissing(result);
 
   const exercisesMarkdown = result.finalOutput?.trim();
 
